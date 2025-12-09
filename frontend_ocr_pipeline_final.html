@@ -630,8 +630,39 @@
             
             <div id="step3" class="tab-content">
                 <h3>Kill Count Extraction</h3>
-                <div class="json-viewer">
-                    <pre id="step3Json">No results yet</pre>
+                
+                <!-- Dual OCR vs Claude Extraction Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-primary" id="runOCRStep3Btn" style="flex: 1;">
+                        <span id="runOCRStep3Text">🔵 Run OCR (Tesseract)</span>
+                    </button>
+                    <button class="btn btn-primary" id="runClaudeStep3Btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <span id="runClaudeStep3Text">🔴 Run Claude Extraction</span>
+                    </button>
+                </div>
+                
+                <!-- OCR Results Display -->
+                <div id="ocrResultsContainer" style="display: none; margin-bottom: 20px; padding: 15px; background: #0f172a; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h4 style="margin-top: 0; color: #3b82f6;">OCR Results (Tesseract)</h4>
+                    <div class="json-viewer">
+                        <pre id="ocrResultsJson">No results yet</pre>
+                    </div>
+                </div>
+                
+                <!-- Claude Results Display -->
+                <div id="claudeResultsContainer" style="display: none; margin-bottom: 20px; padding: 15px; background: #0f172a; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <h4 style="margin-top: 0; color: #f59e0b;">Claude Extraction Results</h4>
+                    <div class="json-viewer">
+                        <pre id="claudeResultsJson">No results yet</pre>
+                    </div>
+                </div>
+                
+                <!-- Main Step 3 Results (from pipeline) -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #334155;">
+                    <h4 style="color: #94a3b8; margin-bottom: 10px;">Pipeline Results</h4>
+                    <div class="json-viewer">
+                        <pre id="step3Json">No results yet</pre>
+                    </div>
                 </div>
                 
                 <!-- OCR Debug Mode Panel -->
@@ -2065,6 +2096,139 @@
             }
         }
         
+        // Step 3: Run OCR (Tesseract) Handler
+        async function runOCRStep3() {
+            if (!state.step2_5Results) {
+                showError('Please complete Step 2.5 (Refine Boxes) first');
+                return;
+            }
+            
+            const runOCRBtn = document.getElementById('runOCRStep3Btn');
+            const runOCRText = document.getElementById('runOCRStep3Text');
+            runOCRBtn.disabled = true;
+            runOCRText.textContent = '⏳ Running OCR...';
+            
+            appendLog('Step 3 (OCR): Starting Tesseract extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Prepare kill crops from refined kill boxes
+                const killCrops = [];
+                if (state.step2_5Results.players) {
+                    for (const card of state.step2_5Results.players) {
+                        for (const player of card.players || []) {
+                            if (player.kill_box_refined) {
+                                killCrops.push({
+                                    card_index: card.card_index,
+                                    slot_index: player.slot_index,
+                                    kill_box: player.kill_box_refined
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                // Call OCR extraction endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        kill_crops: killCrops,
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.results) {
+                    appendLog(`Step 3 (OCR): Extracted ${data.results.length} kill counts`, 'success');
+                    
+                    // Display OCR results
+                    document.getElementById('ocrResultsJson').textContent = JSON.stringify(data.results, null, 2);
+                    document.getElementById('ocrResultsContainer').style.display = 'block';
+                    
+                    appendLog('Step 3 (OCR): Complete. Check OCR Results above.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Step 3 (OCR): Failed - ${errorMsg}`, 'error');
+                    showError(`OCR extraction failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Step 3 (OCR): Error - ${error.message}`, 'error');
+                showError(`OCR extraction error: ${error.message}`);
+            } finally {
+                runOCRBtn.disabled = false;
+                runOCRText.textContent = '🔵 Run OCR (Tesseract)';
+            }
+        }
+        
+        // Step 3: Run Claude Extraction Handler
+        async function runClaudeStep3() {
+            if (!state.screenshot) {
+                showError('Please upload a screenshot first');
+                return;
+            }
+            
+            const runClaudeBtn = document.getElementById('runClaudeStep3Btn');
+            const runClaudeText = document.getElementById('runClaudeStep3Text');
+            runClaudeBtn.disabled = true;
+            runClaudeText.textContent = '⏳ Running Claude...';
+            
+            appendLog('Step 3 (Claude): Starting Claude extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Get card boxes if available
+                const cardBoxes = state.step1Results ? state.step1Results.cards : [];
+                
+                // Call Claude full result endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data,
+                        card_boxes: cardBoxes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    appendLog(`Step 3 (Claude): Extracted ${data.data.teams.length} teams in ${data.latency_seconds.toFixed(2)}s`, 'success');
+                    
+                    // Display Claude results
+                    document.getElementById('claudeResultsJson').textContent = JSON.stringify(data.data, null, 2);
+                    document.getElementById('claudeResultsContainer').style.display = 'block';
+                    
+                    appendLog('Step 3 (Claude): Complete. Check Claude Results above.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Step 3 (Claude): Failed - ${errorMsg}`, 'error');
+                    showError(`Claude extraction failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Step 3 (Claude): Error - ${error.message}`, 'error');
+                showError(`Claude extraction error: ${error.message}`);
+            } finally {
+                runClaudeBtn.disabled = false;
+                runClaudeText.textContent = '🔴 Run Claude Extraction';
+            }
+        }
+        
         // Reset session storage (ONLY STEP DATA)
         document.getElementById('resetBtn').addEventListener('click', () => {
             const keys = Object.keys(STORAGE_KEYS);
@@ -2132,6 +2296,10 @@
         
         // Claude Full Result button
         document.getElementById('claudeFullResultBtn').addEventListener('click', runClaudeFullResult);
+        
+        // Step 3: OCR vs Claude buttons
+        document.getElementById('runOCRStep3Btn').addEventListener('click', runOCRStep3);
+        document.getElementById('runClaudeStep3Btn').addEventListener('click', runClaudeStep3);
         
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
