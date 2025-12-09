@@ -2,6 +2,7 @@ import json
 import base64
 import logging
 import re
+import cv2
 from typing import Optional
 from pathlib import Path
 from PIL import Image
@@ -9,7 +10,6 @@ from io import BytesIO
 import numpy as np
 import boto3
 import pytesseract
-from paddleocr import PaddleOCR
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +21,28 @@ class KillExtractionError(Exception):
 class KillExtractor:
     """Service for extracting kill counts from cropped kill number images."""
     
-    def __init__(self):
-        """Initialize the extractor with OCR engines and Claude client."""
+    def __init__(self, use_paddle_debug: bool = False):
+        """
+        Initialize the extractor with OCR engines and Claude client.
+        
+        Args:
+            use_paddle_debug: If True, load PaddleOCR for debug mode only.
+        """
         self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-2")
         self.model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+        self.use_paddle_debug = use_paddle_debug
+        self.paddle_ocr = None
         
-        # Initialize PaddleOCR for digits
-        logger.info("Initializing PaddleOCR...")
-        self.paddle_ocr = PaddleOCR(use_angle_cls=False, lang='en')
+        # Load PaddleOCR only if debug mode is enabled
+        if self.use_paddle_debug:
+            try:
+                logger.info("Debug mode: Initializing PaddleOCR...")
+                from paddleocr import PaddleOCR
+                self.paddle_ocr = PaddleOCR(use_angle_cls=False, lang='en')
+            except Exception as e:
+                logger.warning(f"Failed to load PaddleOCR for debug: {str(e)}")
         
-        logger.info("KillExtractor initialized")
+        logger.info(f"KillExtractor initialized (paddle_debug={self.use_paddle_debug})")
         self._load_prompts()
     
     def _load_prompts(self):
@@ -57,6 +69,33 @@ class KillExtractor:
     def _image_to_base64(self, image_bytes: bytes) -> str:
         """Convert image bytes to base64 string."""
         return base64.standard_b64encode(image_bytes).decode("utf-8")
+    
+    def _preprocess_for_ocr(self, image_bytes: bytes) -> Image.Image:
+        """
+        Fast preprocessing: convert to grayscale and apply adaptive threshold.
+        
+        This replaces CLAHE + threshold + denoise with a single fast operation.
+        """
+        img = Image.open(BytesIO(image_bytes))
+        
+        # Convert to grayscale
+        if img.mode != 'L':
+            img = img.convert('L')
+        
+        # Convert to numpy for OpenCV
+        img_np = np.array(img)
+        
+        # Adaptive threshold (fast, effective for digits)
+        # ADAPTIVE_THRESH_MEAN_C: threshold = mean of neighborhood
+        # blockSize=11: neighborhood size (must be odd)
+        # C=2: constant subtracted from mean
+        thresholded = cv2.adaptiveThreshold(
+            img_np, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+            cv2.THRESH_BINARY, 11, 2
+        )
+        
+        # Convert back to PIL
+        return Image.fromarray(thresholded)
     
     def _extract_paddle_ocr(self, image_bytes: bytes) -> Optional[int]:
         """
@@ -111,7 +150,7 @@ class KillExtractor:
     
     def _extract_tesseract(self, image_bytes: bytes) -> Optional[int]:
         """
-        Extract kill count using Tesseract.
+        Extract kill count using Tesseract on preprocessed image.
         
         Args:
             image_bytes: Raw image bytes
@@ -120,10 +159,14 @@ class KillExtractor:
             Extracted kill count (0-20) or None
         """
         try:
-            img = Image.open(BytesIO(image_bytes))
+            # Preprocess: adaptive threshold (fast, no CLAHE overhead)
+            img = self._preprocess_for_ocr(image_bytes)
             
-            # Tesseract config for digits only
-            config = '--oem 1 --psm 13 -c tessedit_char_whitelist=0123456789'
+            # Tesseract config optimized for digits
+            # --oem 1: Legacy OCR engine (faster)
+            # --psm 6: Single uniform block of text (good for digit regions)
+            # -c tessedit_char_whitelist: Only recognize digits
+            config = '--oem 1 --psm 6 -c tessedit_char_whitelist=0123456789'
             text = pytesseract.image_to_string(img, config=config)
             
             text = text.strip()
@@ -150,9 +193,74 @@ class KillExtractor:
             logger.error(f"Tesseract error: {str(e)}")
             return None
     
+    def _extract_with_claude(self, image_base64: str) -> Optional[int]:
+        """
+        Extract kill count directly from image using Claude Vision.
+        
+        Used as fallback when Tesseract fails.
+        
+        Args:
+            image_base64: Base64-encoded image
+            
+        Returns:
+            Extracted kill count (0-20) or None
+        """
+        try:
+            response = self.bedrock_client.converse(
+                modelId=self.model_id,
+                system=[{"text": self.system_prompt}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "image": {
+                                    "format": "jpeg",
+                                    "source": {
+                                        "bytes": base64.b64decode(image_base64),
+                                    },
+                                },
+                            },
+                            {
+                                "text": "Extract the kill count number from this image. Return JSON: {\"kills\": <number>}",
+                            }
+                        ],
+                    }
+                ],
+                inferenceConfig={
+                    "maxTokens": 100,
+                    "temperature": 0,
+                    "topP": 1,
+                }
+            )
+            
+            # Extract response
+            if "output" in response and "message" in response["output"]:
+                content_blocks = response["output"]["message"]["content"]
+                if isinstance(content_blocks, list):
+                    for block in content_blocks:
+                        if "text" in block:
+                            response_text = block["text"]
+                            try:
+                                data = json.loads(response_text)
+                                kills = data.get("kills")
+                                if isinstance(kills, int) and 0 <= kills <= 20:
+                                    logger.info(f"Claude extracted: {kills}")
+                                    return kills
+                            except json.JSONDecodeError:
+                                logger.warning(f"Claude returned invalid JSON: {response_text}")
+                                return None
+            
+            logger.warning("No text content in Claude response")
+            return None
+        
+        except Exception as e:
+            logger.error(f"Claude extraction error: {str(e)}")
+            return None
+    
     def _verify_with_claude(self, image_base64: str, candidate_kill: int) -> bool:
         """
-        Verify kill count with Claude.
+        Verify kill count with Claude (kept for backward compatibility).
         
         Args:
             image_base64: Base64-encoded image
@@ -219,6 +327,13 @@ class KillExtractor:
         """
         Extract kill count from a cropped kill number image.
         
+        PRODUCTION PIPELINE (optimized for speed):
+        1. Tesseract on adaptive threshold (primary, ~50-100ms)
+        2. Claude Vision verification if needed (fallback, ~500ms)
+        
+        PaddleOCR is NOT used in production (too slow, ~300-700ms per call).
+        It's available only in debug mode.
+        
         Args:
             image_bytes: Raw image bytes of kill number crop
             
@@ -233,52 +348,37 @@ class KillExtractor:
         # Validate image
         self._validate_image(image_bytes)
         
-        # Convert to base64 for Claude
-        image_base64 = self._image_to_base64(image_bytes)
+        # Convert to base64 for Claude (only if needed)
+        image_base64 = None
         
-        # Try PaddleOCR
-        paddle_result = self._extract_paddle_ocr(image_bytes)
-        
-        # Try Tesseract
+        # PRODUCTION: Try Tesseract only (fast, reliable on clean crops)
         tesseract_result = self._extract_tesseract(image_bytes)
         
-        logger.info(f"OCR results - Paddle: {paddle_result}, Tesseract: {tesseract_result}")
+        logger.info(f"Tesseract result: {tesseract_result}")
         
         # Determine confidence and final result
         kills = None
         confidence = "LOW"
         claude_check = False
+        paddle_result = None
         
-        # If both agree and are valid
-        if paddle_result is not None and tesseract_result is not None:
-            if paddle_result == tesseract_result:
-                kills = paddle_result
-                confidence = "HIGH"
-                logger.info(f"Both OCR engines agree: {kills}")
-            else:
-                # Disagree - use Claude to verify
-                logger.info(f"OCR engines disagree, using Claude verification")
-                if paddle_result is not None:
-                    claude_check = self._verify_with_claude(image_base64, paddle_result)
-                    if claude_check:
-                        kills = paddle_result
-                        confidence = "MEDIUM"
-                        logger.info(f"Claude confirmed Paddle result: {kills}")
-        
-        # If only one OCR succeeded, try Claude
-        elif paddle_result is not None:
-            claude_check = self._verify_with_claude(image_base64, paddle_result)
-            if claude_check:
-                kills = paddle_result
+        # If Tesseract succeeded, trust it (HIGH confidence)
+        if tesseract_result is not None:
+            kills = tesseract_result
+            confidence = "HIGH"
+            logger.info(f"Tesseract extracted with HIGH confidence: {kills}")
+        else:
+            # Tesseract failed, use Claude Vision as fallback
+            logger.info("Tesseract failed, using Claude Vision fallback")
+            image_base64 = self._image_to_base64(image_bytes)
+            
+            # Try to extract with Claude
+            claude_result = self._extract_with_claude(image_base64)
+            if claude_result is not None:
+                kills = claude_result
                 confidence = "MEDIUM"
-                logger.info(f"Claude confirmed Paddle result: {kills}")
-        
-        elif tesseract_result is not None:
-            claude_check = self._verify_with_claude(image_base64, tesseract_result)
-            if claude_check:
-                kills = tesseract_result
-                confidence = "MEDIUM"
-                logger.info(f"Claude confirmed Tesseract result: {kills}")
+                claude_check = True
+                logger.info(f"Claude extracted with MEDIUM confidence: {kills}")
         
         logger.info(f"Final result - Kills: {kills}, Confidence: {confidence}")
         

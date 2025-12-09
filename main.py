@@ -39,7 +39,7 @@ app.add_middleware(
 # Initialize detectors
 card_detector = TeamCardDetector()
 player_detector = PlayerSlotDetector()
-kill_extractor = KillExtractor()
+kill_extractor = KillExtractor(use_paddle_debug=False)  # Production: Tesseract + Claude only
 name_extractor = NameExtractor()
 finalizer = OcrFinalizer()
 ocr_debugger = OcrDebugger()
