@@ -13,6 +13,7 @@ from services.finalizer import OcrFinalizer, OcrFinalizationRequest
 from services.image_cropper import ImageCropper
 from services.kill_box_refiner import KillBoxRefiner
 from services.ocr_debugger import OcrDebugger
+from services.full_result_extractor import FullResultExtractor, FullResultExtractionError
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +44,7 @@ kill_extractor = KillExtractor(use_paddle_debug=False)  # Production: Tesseract 
 name_extractor = NameExtractor()
 finalizer = OcrFinalizer()
 ocr_debugger = OcrDebugger()
+full_result_extractor = FullResultExtractor()  # Full-screenshot Claude extraction
 
 # Global storage for original full-resolution screenshot and card boxes (used by debug mode)
 global_original_screenshot_array = None
@@ -956,6 +958,81 @@ async def restore_debug_context(request_data: dict):
             content={
                 "request_id": request_id,
                 "error": str(e)
+            }
+        )
+
+
+@app.post("/ocr/claude-full-result")
+async def claude_full_result(request_data: dict):
+    """
+    Extract complete match result from full screenshot using Claude Vision.
+    
+    This endpoint:
+    1. Takes a full Free Fire scoreboard screenshot
+    2. Uses Claude Vision to extract all teams, players, kills, placements
+    3. Returns structured JSON with complete match data
+    
+    Perfect for organizers verifying one screenshot end-to-end.
+    
+    Args:
+        request_data: Dict with screenshot_base64
+        
+    Returns:
+        JSON response with teams, players, kills, placements
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        screenshot_base64 = request_data.get("screenshot_base64")
+        
+        if not screenshot_base64:
+            logger.warning(f"[{request_id}] No screenshot provided")
+            raise ValueError("screenshot_base64 required")
+        
+        logger.info(f"[{request_id}] Processing full result extraction")
+        
+        # Extract full result using Claude Vision
+        result = full_result_extractor.extract_full_result(screenshot_base64)
+        
+        logger.info(f"[{request_id}] Full result extraction complete")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "request_id": request_id,
+                "success": True,
+                "data": result["data"],
+                "latency_seconds": result["latency_seconds"]
+            }
+        )
+    
+    except ValueError as e:
+        logger.error(f"[{request_id}] Validation error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except FullResultExtractionError as e:
+        logger.error(f"[{request_id}] Extraction error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except Exception as e:
+        logger.exception(f"[{request_id}] Unexpected error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": f"Internal server error: {str(e)}"
             }
         )
 

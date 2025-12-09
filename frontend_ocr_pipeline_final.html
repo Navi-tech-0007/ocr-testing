@@ -581,6 +581,9 @@
             <div class="control-buttons">
                 <button class="btn btn-secondary" id="resetBtn">Reset Session Storage</button>
                 <button class="btn btn-secondary" id="clearImageBtn">Clear Image</button>
+                <button class="btn btn-primary" id="claudeFullResultBtn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    ⚡ Extract Full Result (Claude)
+                </button>
             </div>
         </div>
         
@@ -592,6 +595,7 @@
                 <button class="tab" data-tab="step3">Step 3</button>
                 <button class="tab" data-tab="step4">Step 4</button>
                 <button class="tab" data-tab="step5">Step 5</button>
+                <button class="tab" data-tab="claudeFullResult">Claude Full Result</button>
                 <button class="tab" data-tab="console">Console</button>
             </div>
             
@@ -680,6 +684,17 @@
                 <h3>Final Assembly & Validation</h3>
                 <div class="json-viewer">
                     <pre id="step5Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="claudeFullResult" class="tab-content">
+                <h3>Claude Full-Screenshot Extraction</h3>
+                <p style="color: #94a3b8; margin-bottom: 15px;">
+                    Extract complete match result directly from the full screenshot using Claude Vision.
+                    This bypasses the 5-step pipeline and returns all teams, players, and kills in one call.
+                </p>
+                <div class="json-viewer">
+                    <pre id="claudeFullResultJson">No results yet</pre>
                 </div>
             </div>
             
@@ -1998,6 +2013,58 @@
             }
         }
         
+        async function runClaudeFullResult() {
+            if (!state.screenshot) {
+                showError('Please upload a screenshot first');
+                return;
+            }
+            
+            appendLog('Claude Full Result: Starting full-screenshot extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Call Claude full result endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    appendLog(`Claude Full Result: Extracted ${data.data.teams.length} teams in ${data.latency_seconds.toFixed(2)}s`, 'success');
+                    
+                    // Display result
+                    document.getElementById('claudeFullResultJson').textContent = JSON.stringify(data.data, null, 2);
+                    
+                    // Switch to Claude Full Result tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.querySelector('[data-tab="claudeFullResult"]').classList.add('active');
+                    document.getElementById('claudeFullResult').classList.add('active');
+                    
+                    appendLog('Claude Full Result: Complete. Check the "Claude Full Result" tab.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Claude Full Result: Failed - ${errorMsg}`, 'error');
+                    showError(`Claude Full Result failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Claude Full Result: Error - ${error.message}`, 'error');
+                showError(`Claude Full Result error: ${error.message}`);
+            }
+        }
+        
         // Reset session storage (ONLY STEP DATA)
         document.getElementById('resetBtn').addEventListener('click', () => {
             const keys = Object.keys(STORAGE_KEYS);
@@ -2062,6 +2129,9 @@
         document.getElementById('step3Btn').addEventListener('click', runStep3);
         document.getElementById('step4Btn').addEventListener('click', runStep4);
         document.getElementById('step5Btn').addEventListener('click', runStep5);
+        
+        // Claude Full Result button
+        document.getElementById('claudeFullResultBtn').addEventListener('click', runClaudeFullResult);
         
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
