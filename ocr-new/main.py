@@ -154,7 +154,7 @@ async def detect_team_cards(
 
 
 @app.post("/ocr/cards/players/detect")
-async def detect_all_players(request_data: dict):
+async def detect_all_players(request_data: dict = Body(...)):
     """
     Detect player slots from all team cards using STATIC GEOMETRY (Step 2).
     
@@ -308,15 +308,17 @@ async def detect_players(
 
 
 @app.post("/ocr/players/refine-kill-boxes")
-async def refine_kill_boxes(request_data: dict):
+async def refine_kill_boxes(request_data: dict = Body(...)):
     """
     Step 2.5: Generate preview crops from static geometry kill boxes (Step 2 output).
     
     The kill boxes are already computed and padded by Step 2 (static geometry).
     This endpoint just creates upscaled preview crops for visualization.
     
+    Accepts both old format (with card_crop, card_width, card_height) and new format (players only).
+    
     Args:
-        request_data: Dict with players (from Step 2)
+        request_data: Dict with players (from Step 2), optionally card_crop/card_width/card_height (ignored)
         
     Returns:
         JSON response with refined players and preview crops
@@ -351,13 +353,16 @@ async def refine_kill_boxes(request_data: dict):
         
         logger.info(f"[{request_id}] Step 2.5 complete. Preview crops: {len(preview_crops)}")
         
+        # Count valid crops (those with crop_base64)
+        valid_count = len([p for p in preview_crops if "crop_base64" in p])
+        
         return JSONResponse(
             status_code=200,
             content={
                 "request_id": request_id,
                 "refined_players": players,  # Already refined by Step 2
                 "preview_crops": preview_crops,
-                "valid_count": len([p for p in preview_crops if "crop_base64" in p]),
+                "valid_count": valid_count,
                 "total_count": len(preview_crops)
             }
         )
