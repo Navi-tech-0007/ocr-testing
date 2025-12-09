@@ -1,0 +1,489 @@
+{
+  "request_id": "ef5da1d1-ce92-472e-9dd6-099e8fdbbce1",
+  "results": [
+    {
+      "card_index": 1,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 1,
+      "slot_index": 2,
+      "kills": 3,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 3,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 1,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 1,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 2,
+      "slot_index": 1,
+      "kills": 8,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 8,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 2,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 2,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 2,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 3,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 3,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 3,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 3,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 4,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 4,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 4,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 4,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 5,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 5,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 5,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 5,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 6,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 6,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 6,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 6,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 7,
+      "slot_index": 1,
+      "kills": 7,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 7,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 7,
+      "slot_index": 2,
+      "kills": 3,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 3,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 7,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 7,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 8,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 8,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 8,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 8,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 9,
+      "slot_index": 1,
+      "kills": 1,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 1,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 9,
+      "slot_index": 2,
+      "kills": 10,
+      "confidence": "HIGH",
+      "sources": {
+        "paddle": null,
+        "tesseract": 10,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 9,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 9,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 10,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 10,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 10,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 10,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 11,
+      "slot_index": 1,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 11,
+      "slot_index": 2,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 11,
+      "slot_index": 3,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    },
+    {
+      "card_index": 11,
+      "slot_index": 4,
+      "kills": null,
+      "confidence": "LOW",
+      "sources": {
+        "paddle": null,
+        "tesseract": null,
+        "claude_check": false
+      }
+    }
+  ]
+}

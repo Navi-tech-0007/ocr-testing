@@ -1,0 +1,36 @@
+You are given a full screenshot of a Free Fire match scoreboard.
+
+Each TEAM CARD represents one squad and contains exactly 4 player rows arranged in a 2×2 grid:
+- Row 1 Left: Player 1
+- Row 1 Right: Player 2
+- Row 2 Left: Player 3
+- Row 2 Right: Player 4
+
+Your task:
+1. Identify every visible TEAM CARD in the entire screenshot.
+2. For each detected card, return:
+   - card_index: the visual top-to-bottom order (1 = top-most).
+   - approx_visual_rank: same as card_index unless uncertain.
+   - bounds: the bounding box of the entire card in pixel coordinates.
+
+Bounding boxes:
+- Use coordinates { "x1": INT, "y1": INT, "x2": INT, "y2": INT }.
+- Coordinates must be relative to the FULL screenshot.
+- If a card is partially cut off, still return the visible bounding box.
+
+Return JSON ONLY in this exact structure:
+
+{
+  "cards": [
+    {
+      "card_index": 1,
+      "approx_visual_rank": 1,
+      "bounds": { "x1": 0, "y1": 0, "x2": 0, "y2": 0 }
+    }
+  ]
+}
+
+Rules:
+- Do not extract player names or kills in this step.
+- Do not include extra fields.
+- If uncertain, estimate but keep values reasonable.

@@ -2,7 +2,7 @@ import base64
 import uuid
 import logging
 from io import BytesIO
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from services.card_detector import TeamCardDetector, CardDetectionError
@@ -963,7 +963,7 @@ async def restore_debug_context(request_data: dict):
 
 
 @app.post("/ocr/claude-full-result")
-async def claude_full_result(request_data: dict):
+async def claude_full_result(request_data: dict = None):
     """
     Extract complete match result from full screenshot using Claude Vision.
     

@@ -156,12 +156,17 @@ class OcrDebugger:
             logger.info(f"[DEBUG] Tesseract raw output: {repr(tesseract_raw)}")
             print(f"[DEBUG] TESSERACT OUTPUT: {repr(tesseract_raw)}")
             
-            # PaddleOCR
-            logger.info(f"[DEBUG] PaddleOCR input array shape: {raw_crop.shape}")
-            paddle_result = self.paddle_ocr.ocr(raw_crop)
-            paddle_raw = str(paddle_result) if paddle_result else ""
-            logger.info(f"[DEBUG] PaddleOCR raw output: {repr(paddle_raw[:100])}")  # First 100 chars
-            print(f"[DEBUG] PADDLE OUTPUT: {repr(paddle_raw[:150])}")
+            # PaddleOCR (optional - only if available)
+            paddle_raw = ""
+            if self.paddle_ocr is not None:
+                logger.info(f"[DEBUG] PaddleOCR input array shape: {raw_crop.shape}")
+                paddle_result = self.paddle_ocr.ocr(raw_crop)
+                paddle_raw = str(paddle_result) if paddle_result else ""
+                logger.info(f"[DEBUG] PaddleOCR raw output: {repr(paddle_raw[:100])}")  # First 100 chars
+                print(f"[DEBUG] PADDLE OUTPUT: {repr(paddle_raw[:150])}")
+            else:
+                logger.info(f"[DEBUG] PaddleOCR not available (not installed)")
+                print(f"[DEBUG] PADDLE OUTPUT: (not available)")
             
             # Claude verification (disabled for now)
             claude_raw = ""

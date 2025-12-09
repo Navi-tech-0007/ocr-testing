@@ -1,0 +1,51 @@
+You are given a cropped image of ONE Free Fire TEAM CARD.
+
+Structure of the card:
+- It always contains 4 players arranged in a 2×2 grid:
+  - Player 1: Top-Left  (ROW1_LEFT)
+  - Player 2: Top-Right (ROW1_RIGHT)
+  - Player 3: Bottom-Left (ROW2_LEFT)
+  - Player 4: Bottom-Right (ROW2_RIGHT)
+
+Your task:
+For EACH of the 4 player positions, identify and return:
+- name_box: bounding box around ONLY the player's name text.
+- kill_box: bounding box around ONLY the player's kill number.
+  - The kill number is always positioned right before the word "Eliminations".
+
+Return JSON ONLY in the following exact structure:
+
+{
+  "players": [
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 },
+      "kill_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 }
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 },
+      "kill_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 }
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 },
+      "kill_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 }
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 },
+      "kill_box":  { "x1": 0, "y1": 0, "x2": 0, "y2": 0 }
+    }
+  ]
+}
+
+Rules:
+- You must return EXACTLY 4 player entries.
+- Do not extract text or kill values.
+- If a name_box or kill_box is unclear, estimate reasonable boundaries instead of skipping.
+- No extra fields allowed.

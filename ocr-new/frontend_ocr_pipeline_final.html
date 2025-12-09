@@ -596,7 +596,7 @@
                 <button class="step-btn disabled" id="step2Btn" data-step="2">
                     Step 2<br><span class="step-btn-label">Players</span>
                 </button>
-                <button class="step-btn disabled" id="step2_5Btn" data-step="2.5">
+                <button class="step-btn disabled" id="step2_5Btn" data-step="2.5" style="display: none;">
                     Step 2.5<br><span class="step-btn-label">Refine Boxes</span>
                 </button>
                 <button class="step-btn disabled" id="previewKillsBtn" data-step="preview">
@@ -626,7 +626,7 @@
             <div class="tabs">
                 <button class="tab active" data-tab="step1">Step 1</button>
                 <button class="tab" data-tab="step2">Step 2</button>
-                <button class="tab" data-tab="step2_5">Step 2.5</button>
+                <button class="tab" data-tab="step2_5" style="display: none;">Step 2.5</button>
                 <button class="tab" data-tab="step3">Step 3</button>
                 <button class="tab" data-tab="step4">Step 4</button>
                 <button class="tab" data-tab="step5">Step 5</button>
@@ -1434,14 +1434,18 @@
             }
         }
         
-        // Preview kill crops before Step 3 (uses Step 2.5 refined boxes from sessionStorage)
+        // Preview kill crops before Step 3 (uses Step 2 refined boxes)
         async function previewKillCrops() {
+            console.log('Preview clicked. state.step2Results:', state.step2Results);
+            
             if (!state.step2Results || !state.step2Results.players) {
                 showError('No player data from Step 2');
+                appendLog('Kill Crops: No player data available', 'error');
                 return;
             }
             
             appendLog('Kill Crops: Generating preview images...', 'info');
+            console.log('Preview: Found', state.step2Results.players.length, 'players');
             
             try {
                 // Get screenshot base64
@@ -1458,7 +1462,9 @@
                 // Build kill boxes with refined coordinates for backend
                 const killBoxes = [];
                 for (const player of state.step2Results.players) {
-                    if (player.kill_box_refined) {
+                    // Static geometry returns kill_box (already padded), not kill_box_refined
+                    const killBox = player.kill_box || player.kill_box_refined;
+                    if (killBox) {
                         // Crop the card first
                         const cardBounds = state.step1Results.cards.find(c => c.card_index === player.card_index)?.bounds;
                         if (!cardBounds) continue;
@@ -1466,10 +1472,18 @@
                         // Crop card from screenshot
                         const cardCropBytes = await cropImageInBrowser(base64Data, cardBounds.x1, cardBounds.y1, cardBounds.x2, cardBounds.y2);
                         
+                        // Convert absolute kill_box coordinates to card-relative coordinates
+                        const cardRelativeBox = {
+                            x1: killBox.x1 - cardBounds.x1,
+                            y1: killBox.y1 - cardBounds.y1,
+                            x2: killBox.x2 - cardBounds.x1,
+                            y2: killBox.y2 - cardBounds.y1
+                        };
+                        
                         killBoxes.push({
                             card_index: player.card_index,
                             slot_index: player.slot_index,
-                            box: player.kill_box_refined,  // Use refined box
+                            box: cardRelativeBox,  // Use card-relative coordinates
                             card_crop: cardCropBytes
                         });
                     }
@@ -1527,7 +1541,12 @@
         
         // Display kill crop previews in modal
         function displayKillCropPreviews(crops) {
+            console.log('displayKillCropPreviews called with', crops.length, 'crops');
             const grid = document.getElementById('killCropsGrid');
+            if (!grid) {
+                console.error('killCropsGrid element not found!');
+                return;
+            }
             grid.innerHTML = '';
             
             let validCount = 0;
@@ -1614,8 +1633,13 @@
             // Get cards from Step 1 results
             const cards = state.step1Results?.cards || [];
             
+            console.log('restoreDebugContext: base64Data exists:', !!base64Data);
+            console.log('restoreDebugContext: cards count:', cards.length);
+            console.log('restoreDebugContext: state.screenshot exists:', !!state.screenshot);
+            
             if (!base64Data || cards.length === 0) {
                 appendLog('Debug: Cannot restore context - missing screenshot or Step 1 data', 'warning');
+                console.error('Debug context missing:', { hasBase64: !!base64Data, cardCount: cards.length });
                 return false;
             }
             
@@ -1631,6 +1655,8 @@
                 
                 const data = await response.json();
                 
+                console.log('restoreDebugContext response:', data);
+                
                 if (response.ok) {
                     appendLog(`Debug: Restored backend context (${data.card_count} cards)`, 'success');
                     return true;
@@ -1640,6 +1666,7 @@
                 }
             } catch (error) {
                 appendLog(`Debug: Error restoring context: ${error.message}`, 'warning');
+                console.error('restoreDebugContext error:', error);
                 return false;
             }
         }
@@ -1667,8 +1694,8 @@
                 cardSelect.appendChild(option);
             }
             
-            // Enable buttons if Step 2.5 is done
-            const hasSomeRefined = state.step2Results.players.some(p => p.kill_box_refined);
+            // Enable buttons if Step 2 is done (static geometry returns kill_box)
+            const hasSomeRefined = state.step2Results.players.some(p => p.kill_box || p.kill_box_refined);
             document.getElementById('debugSingleBtn').disabled = !hasSomeRefined;
             document.getElementById('debugCardBtn').disabled = !hasSomeRefined;
         }
@@ -1688,13 +1715,15 @@
                 p.card_index === cardIndex && p.slot_index === slotIndex
             );
             
-            if (!player || !player.kill_box_refined) {
-                showError('No refined kill box for this slot');
+            // Static geometry returns kill_box (not kill_box_refined)
+            const killBox = player.kill_box || player.kill_box_refined;
+            if (!player || !killBox) {
+                showError('No kill box for this slot');
                 return;
             }
             
             appendLog(`Debug: Running OCR for Card ${cardIndex} Slot ${slotIndex}...`, 'info');
-            appendLog(`Debug: Using padded kill_box from Step 2.5: ${JSON.stringify(player.kill_box_refined)}`, 'info');
+            appendLog(`Debug: Using padded kill_box: ${JSON.stringify(killBox)}`, 'info');
             
             try {
                 // First, restore backend context (screenshot + card boxes) from cached data
@@ -1704,7 +1733,23 @@
                     return;
                 }
                 
-                // Call debug endpoint with PADDED kill_box coordinates from Step 2.5
+                // Convert absolute kill_box coordinates to card-relative coordinates
+                const cardBounds = state.step1Results.cards.find(c => c.card_index === cardIndex)?.bounds;
+                if (!cardBounds) {
+                    showError('Card bounds not found');
+                    return;
+                }
+                
+                const cardRelativeBox = {
+                    x1: killBox.x1 - cardBounds.x1,
+                    y1: killBox.y1 - cardBounds.y1,
+                    x2: killBox.x2 - cardBounds.x1,
+                    y2: killBox.y2 - cardBounds.y1
+                };
+                
+                appendLog(`Debug: Card-relative kill_box: ${JSON.stringify(cardRelativeBox)}`, 'info');
+                
+                // Call debug endpoint with CARD-RELATIVE kill_box coordinates from Step 2
                 // NOTE: Backend uses stored original screenshot from Step 1, NOT request parameter
                 const response = await fetch(`${API_BASE_URL}/ocr/debug/single-slot`, {
                     method: 'POST',
@@ -1714,7 +1759,7 @@
                     body: JSON.stringify({
                         card_index: cardIndex,
                         slot_index: slotIndex,
-                        kill_box: player.kill_box_refined  // PADDED coordinates from Step 2.5
+                        kill_box: cardRelativeBox  // CARD-RELATIVE coordinates from Step 2 (static geometry)
                         // screenshot NOT sent - backend uses stored original from Step 1
                     })
                 });
@@ -1759,12 +1804,29 @@
                         p.card_index === cardIndex && p.slot_index === slotIndex
                     );
                     
-                    if (!player || !player.kill_box_refined) {
-                        appendLog(`Debug: Skipping Card ${cardIndex} Slot ${slotIndex} (no refined box)`, 'warning');
+
+                    
+                    const killBox = player && (player.kill_box || player.kill_box_refined);
+                    if (!player || !killBox) {
+                        appendLog(`Debug: Skipping Card ${cardIndex} Slot ${slotIndex} (no kill box)`, 'warning');
                         continue;
                     }
                     
-                    // Call debug endpoint with PADDED kill_box coordinates from Step 2.5
+                    // Convert absolute kill_box coordinates to card-relative coordinates
+                    const cardBounds = state.step1Results.cards.find(c => c.card_index === cardIndex)?.bounds;
+                    if (!cardBounds) {
+                        appendLog(`Debug: Skipping Card ${cardIndex} Slot ${slotIndex} (card bounds not found)`, 'warning');
+                        continue;
+                    }
+                    
+                    const cardRelativeBox = {
+                        x1: killBox.x1 - cardBounds.x1,
+                        y1: killBox.y1 - cardBounds.y1,
+                        x2: killBox.x2 - cardBounds.x1,
+                        y2: killBox.y2 - cardBounds.y1
+                    };
+                    
+                    // Call debug endpoint with CARD-RELATIVE kill_box coordinates from Step 2
                     // NOTE: Backend uses stored original screenshot from Step 1, NOT request parameter
                     const response = await fetch(`${API_BASE_URL}/ocr/debug/single-slot`, {
                         method: 'POST',
@@ -1774,7 +1836,7 @@
                         body: JSON.stringify({
                             card_index: cardIndex,
                             slot_index: slotIndex,
-                            kill_box: player.kill_box_refined  // PADDED coordinates from Step 2.5
+                            kill_box: cardRelativeBox  // CARD-RELATIVE coordinates from Step 2 (static geometry)
                             // screenshot NOT sent - backend uses stored original from Step 1
                         })
                     });
@@ -2176,8 +2238,8 @@
         
         // Step 3: Run OCR (Tesseract) Handler
         async function runOCRStep3() {
-            if (!state.step2_5Results) {
-                showError('Please complete Step 2.5 (Refine Boxes) first');
+            if (!state.step2Results) {
+                showError('Please complete Step 2 first');
                 return;
             }
             
@@ -2195,21 +2257,24 @@
                     base64Data = base64Data.split(',')[1];
                 }
                 
-                // Prepare kill crops from refined kill boxes
+                // Prepare kill crops from Step 2 players (static geometry returns kill_box in absolute coordinates)
                 const killCrops = [];
-                if (state.step2_5Results.players) {
-                    for (const card of state.step2_5Results.players) {
-                        for (const player of card.players || []) {
-                            if (player.kill_box_refined) {
-                                killCrops.push({
-                                    card_index: card.card_index,
-                                    slot_index: player.slot_index,
-                                    kill_box: player.kill_box_refined
-                                });
-                            }
+                if (state.step2Results.players) {
+                    for (const player of state.step2Results.players) {
+                        // Static geometry returns kill_box (already padded), not kill_box_refined
+                        const killBox = player.kill_box || player.kill_box_refined;
+                        if (killBox) {
+                            killCrops.push({
+                                card_index: player.card_index,
+                                slot_index: player.slot_index,
+                                kill_box: killBox  // Absolute screenshot coordinates
+                            });
                         }
                     }
                 }
+                
+                console.log('Step 3: Sending', killCrops.length, 'kill crops to backend');
+                console.log('Sample kill_crop:', killCrops[0]);
                 
                 // Call OCR extraction endpoint
                 const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
@@ -2225,8 +2290,16 @@
                 
                 const data = await response.json();
                 
+                console.log('Step 3 Response:', data);
+                console.log('Response OK:', response.ok);
+                
                 if (response.ok && data.results) {
                     appendLog(`Step 3 (OCR): Extracted ${data.results.length} kill counts`, 'success');
+                    
+                    // Store results
+                    state.step3Results = data;
+                    saveStepResult(3, data);
+                    updateProgress(3, 'complete');
                     
                     // Display OCR results
                     document.getElementById('ocrResultsJson').textContent = JSON.stringify(data.results, null, 2);
@@ -2360,6 +2433,56 @@
             runStep3();
         });
         
+        // OCR Debug Mode selectors
+        document.getElementById('debugCardSelect').addEventListener('change', () => {
+            const cardSelect = document.getElementById('debugCardSelect');
+            const slotSelect = document.getElementById('debugSlotSelect');
+            const debugSingleBtn = document.getElementById('debugSingleBtn');
+            const debugCardBtn = document.getElementById('debugCardBtn');
+            
+            if (cardSelect.value) {
+                debugCardBtn.disabled = false;
+                if (slotSelect.value) {
+                    debugSingleBtn.disabled = false;
+                }
+            } else {
+                debugSingleBtn.disabled = true;
+                debugCardBtn.disabled = true;
+            }
+        });
+        
+        document.getElementById('debugSlotSelect').addEventListener('change', () => {
+            const cardSelect = document.getElementById('debugCardSelect');
+            const slotSelect = document.getElementById('debugSlotSelect');
+            const debugSingleBtn = document.getElementById('debugSingleBtn');
+            
+            if (cardSelect.value && slotSelect.value) {
+                debugSingleBtn.disabled = false;
+            } else {
+                debugSingleBtn.disabled = true;
+            }
+        });
+        
+        // Populate card selector when Step 3 tab is viewed
+        document.querySelector('[data-tab="step3"]').addEventListener('click', () => {
+            if (state.step1Results && state.step1Results.cards) {
+                const cardSelect = document.getElementById('debugCardSelect');
+                const currentValue = cardSelect.value;
+                cardSelect.innerHTML = '<option value="">Select Card...</option>';
+                
+                for (const card of state.step1Results.cards) {
+                    const option = document.createElement('option');
+                    option.value = card.card_index;
+                    option.textContent = `Card ${card.card_index}`;
+                    cardSelect.appendChild(option);
+                }
+                
+                if (currentValue) {
+                    cardSelect.value = currentValue;
+                }
+            }
+        });
+        
         // OCR Debug Mode buttons
         document.getElementById('debugSingleBtn').addEventListener('click', debugSingleSlot);
         document.getElementById('debugCardBtn').addEventListener('click', debugFullCard);
@@ -2387,6 +2510,22 @@
                 
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.tab).classList.add('active');
+                
+                // Load Step 2.5 data from sessionStorage when tab is viewed
+                if (tab.dataset.tab === 'step2_5') {
+                    const step2_5Data = sessionStorage.getItem(STORAGE_KEYS.step2_5);
+                    if (step2_5Data) {
+                        try {
+                            const parsed = JSON.parse(step2_5Data).data;
+                            document.getElementById('step2_5Json').textContent = JSON.stringify(parsed, null, 2);
+                            if (parsed.preview_crops) {
+                                displayPreviewCrops(parsed);
+                            }
+                        } catch (e) {
+                            console.error('Failed to load Step 2.5 data:', e);
+                        }
+                    }
+                }
             });
         });
         

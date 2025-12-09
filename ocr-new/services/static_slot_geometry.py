@@ -33,14 +33,14 @@ class StaticSlotGeometry:
     KILL_ZONE_X2 = 1.00
 
     # Extra padding for kill boxes (relative to card/row dimensions)
-    KILL_LEFT_PAD_RATIO = 0.02    # of card width
-    KILL_RIGHT_PAD_RATIO = 0.02   # of card width
-    KILL_TOP_PAD_RATIO = 0.15     # of row height
-    KILL_BOTTOM_PAD_RATIO = 0.15  # of row height
+    KILL_LEFT_PAD_RATIO = 0.05    # 5% of card width (more generous)
+    KILL_RIGHT_PAD_RATIO = 0.05   # 5% of card width (more generous)
+    KILL_TOP_PAD_RATIO = 0.20     # 20% of row height (more generous)
+    KILL_BOTTOM_PAD_RATIO = 0.20  # 20% of row height (more generous)
 
     # Minimum kill box dimensions
-    MIN_KILL_WIDTH = 20
-    MIN_KILL_HEIGHT = 20
+    MIN_KILL_WIDTH = 15
+    MIN_KILL_HEIGHT = 15
 
     # Preview scale factor
     PREVIEW_SCALE_FACTOR = 3.0
