@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Pipeline Final - Free Fire Team Card Detection</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section {
+            background: #1e293b;
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #263449;
+        }
+        
+        .upload-section.dragover {
+            border-color: #764ba2;
+            background: #2d3748;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        #imageInput {
+            display: none;
+        }
+        
+        .image-preview {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        
+        #previewImage {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .image-info {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+        
+        .steps-section {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #334155;
+        }
+        
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .step-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+            position: relative;
+        }
+        
+        .step-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .step-btn.disabled {
+            background: #334155;
+            color: #64748b;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .step-btn.disabled[title] {
+            cursor: help;
+        }
+        
+        .step-btn.success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .step-btn.cached {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .step-btn-label {
+            display: block;
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #667eea;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status-text {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            min-height: 20px;
+        }
+        
+        .status-text.loading {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .step-progress {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .step-progress.active {
+            display: block;
+        }
+        
+        .step-progress h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .step-item {
+            padding: 8px 0;
+            font-size: 12px;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .step-item.pending {
+            color: #64748b;
+        }
+        
+        .step-item.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .step-item.complete {
+            color: #10b981;
+        }
+        
+        .step-item.error {
+            color: #ef4444;
+        }
+        
+        .step-indicator {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 16px;
+            font-size: 10px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .step-item.pending .step-indicator {
+            background: #334155;
+            color: #64748b;
+        }
+        
+        .step-item.active .step-indicator {
+            background: #667eea;
+            color: white;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .step-item.complete .step-indicator {
+            background: #10b981;
+            color: white;
+        }
+        
+        .step-item.error .step-indicator {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            border: 1px solid #334155;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .modal-content p {
+            margin-bottom: 20px;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #334155;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .json-viewer {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .json-viewer pre {
+            margin: 0;
+            color: #94a3b8;
+        }
+        
+        .ocr-console {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+        
+        .log-entry.info {
+            color: #94a3b8;
+        }
+        
+        .log-entry.success {
+            color: #10b981;
+        }
+        
+        .log-entry.error {
+            color: #ef4444;
+        }
+        
+        .log-entry.warning {
+            color: #f59e0b;
+        }
+        
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #7f1d1d;
+            border: 1px solid #ef4444;
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: #fecaca;
+            max-width: 400px;
+            z-index: 999;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .error-toast.active {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        #killCropsContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .crop-item {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .crop-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .crop-image {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            border: 1px solid #475569;
+            margin-bottom: 8px;
+        }
+        
+        .crop-size {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .run-id {
+            background: #334155;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 OCR Pipeline Final - Free Fire Team Cards</h1>
+            <p class="subtitle">5-Step OCR with Strict Session Storage Isolation</p>
+        </header>
+        
+        <div class="run-id">
+            Run ID: <span id="runId"></span>
+        </div>
+        
+        <div class="main-grid">
+            <div class="upload-section" id="uploadArea">
+                <div class="upload-icon">📸</div>
+                <div style="font-weight: 600; margin-bottom: 5px;">Click or drag to upload</div>
+                <div style="font-size: 12px; color: #94a3b8;">PNG, JPG, GIF up to 10MB</div>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+            
+            <div class="image-preview">
+                <div style="text-align: center; color: #64748b;" id="previewPlaceholder">
+                    No image selected
+                </div>
+                <img id="previewImage" alt="Preview">
+                <div class="image-info" id="imageInfo"></div>
+            </div>
+        </div>
+        
+        <div class="error-toast" id="errorToast"></div>
+        
+        <div class="step-progress" id="stepProgress">
+            <h4>Pipeline Progress</h4>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="statusText"></div>
+            <div id="stepItems"></div>
+        </div>
+        
+        <div class="steps-section">
+            <h3 style="margin-bottom: 20px;">Pipeline Steps</h3>
+            <div class="steps-grid">
+                <button class="step-btn active" id="step1Btn" data-step="1">
+                    Step 1<br><span class="step-btn-label">Cards</span>
+                </button>
+                <button class="step-btn disabled" id="step2Btn" data-step="2">
+                    Step 2<br><span class="step-btn-label">Players</span>
+                </button>
+                <button class="step-btn disabled" id="step2_5Btn" data-step="2.5">
+                    Step 2.5<br><span class="step-btn-label">Refine Boxes</span>
+                </button>
+                <button class="step-btn disabled" id="previewKillsBtn" data-step="preview">
+                    Preview<br><span class="step-btn-label">Kill Crops</span>
+                </button>
+                <button class="step-btn disabled" id="step3Btn" data-step="3">
+                    Step 3<br><span class="step-btn-label">Kills</span>
+                </button>
+                <button class="step-btn disabled" id="step4Btn" data-step="4">
+                    Step 4<br><span class="step-btn-label">Names</span>
+                </button>
+                <button class="step-btn disabled" id="step5Btn" data-step="5">
+                    Step 5<br><span class="step-btn-label">Finalize</span>
+                </button>
+            </div>
+            
+            <div class="control-buttons">
+                <button class="btn btn-secondary" id="resetBtn">Reset Session Storage</button>
+                <button class="btn btn-secondary" id="clearImageBtn">Clear Image</button>
+                <button class="btn btn-primary" id="claudeFullResultBtn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    ⚡ Extract Full Result (Claude)
+                </button>
+            </div>
+        </div>
+        
+        <div class="steps-section">
+            <div class="tabs">
+                <button class="tab active" data-tab="step1">Step 1</button>
+                <button class="tab" data-tab="step2">Step 2</button>
+                <button class="tab" data-tab="step2_5">Step 2.5</button>
+                <button class="tab" data-tab="step3">Step 3</button>
+                <button class="tab" data-tab="step4">Step 4</button>
+                <button class="tab" data-tab="step5">Step 5</button>
+                <button class="tab" data-tab="claudeFullResult">Claude Full Result</button>
+                <button class="tab" data-tab="console">Console</button>
+            </div>
+            
+            <div id="step1" class="tab-content active">
+                <h3>Team Card Detection</h3>
+                <div class="json-viewer">
+                    <pre id="step1Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="step2" class="tab-content">
+                <h3>Player Slot Detection</h3>
+                <div class="json-viewer">
+                    <pre id="step2Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="step2_5" class="tab-content">
+                <h3>Kill Box Refinement & Padding</h3>
+                <div style="margin-bottom: 15px; padding: 10px; background: #1e293b; border-radius: 6px;">
+                    <p style="color: #94a3b8; font-size: 13px; margin: 0;">
+                        📦 <strong>Step 2.5 Results:</strong> Refined kill boxes with padding applied
+                    </p>
+                    <p style="color: #94a3b8; font-size: 12px; margin: 5px 0 0 0;">
+                        Static Geometry: LEFT 2%, RIGHT 2%, TOP 15%, BOTTOM 15% of card dimensions
+                    </p>
+                </div>
+                
+                <h4 style="margin-top: 20px; margin-bottom: 10px;">Preview Crops (3x Upscaled)</h4>
+                <div id="killCropsContainer" style="min-height: 100px;">
+                    <p style="color: #64748b;">No crops yet - run Step 2 first</p>
+                </div>
+                
+                <h4 style="margin-top: 20px; margin-bottom: 10px;">Raw JSON Results</h4>
+                <div class="json-viewer">
+                    <pre id="step2_5Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="step3" class="tab-content">
+                <h3>Kill Count Extraction</h3>
+                
+                <!-- Dual OCR vs Claude Extraction Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-primary" id="runOCRStep3Btn" style="flex: 1;">
+                        <span id="runOCRStep3Text">🔵 Run OCR (Tesseract)</span>
+                    </button>
+                    <button class="btn btn-primary" id="runClaudeStep3Btn" style="flex: 1; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <span id="runClaudeStep3Text">🔴 Run Claude Extraction</span>
+                    </button>
+                </div>
+                
+                <!-- OCR Results Display -->
+                <div id="ocrResultsContainer" style="display: none; margin-bottom: 20px; padding: 15px; background: #0f172a; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h4 style="margin-top: 0; color: #3b82f6;">OCR Results (Tesseract)</h4>
+                    <div class="json-viewer">
+                        <pre id="ocrResultsJson">No results yet</pre>
+                    </div>
+                </div>
+                
+                <!-- Claude Results Display -->
+                <div id="claudeResultsContainer" style="display: none; margin-bottom: 20px; padding: 15px; background: #0f172a; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <h4 style="margin-top: 0; color: #f59e0b;">Claude Extraction Results</h4>
+                    <div class="json-viewer">
+                        <pre id="claudeResultsJson">No results yet</pre>
+                    </div>
+                </div>
+                
+                <!-- Main Step 3 Results (from pipeline) -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #334155;">
+                    <h4 style="color: #94a3b8; margin-bottom: 10px;">Pipeline Results</h4>
+                    <div class="json-viewer">
+                        <pre id="step3Json">No results yet</pre>
+                    </div>
+                </div>
+                
+                <!-- OCR Debug Mode Panel -->
+                <div style="margin-top: 30px; padding: 15px; background: #0f172a; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <h4 style="margin-top: 0; color: #667eea;">🔍 OCR Debug Mode (Card-by-Card Testing)</h4>
+                    <p style="color: #94a3b8; font-size: 12px; margin: 10px 0;">Test OCR on individual slots with full visibility into preprocessing and engine outputs.</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div>
+                            <label style="color: #cbd5e1; font-size: 12px; display: block; margin-bottom: 5px;">Card</label>
+                            <select id="debugCardSelect" style="width: 100%; padding: 8px; background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 4px;">
+                                <option value="">Select Card...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="color: #cbd5e1; font-size: 12px; display: block; margin-bottom: 5px;">Slot</label>
+                            <select id="debugSlotSelect" style="width: 100%; padding: 8px; background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 4px;">
+                                <option value="">Select Slot...</option>
+                                <option value="1">Slot 1</option>
+                                <option value="2">Slot 2</option>
+                                <option value="3">Slot 3</option>
+                                <option value="4">Slot 4</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-primary" id="debugSingleBtn" style="width: 100%; margin-bottom: 0;" disabled>Extract This Slot</button>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-secondary" id="debugCardBtn" style="width: 100%; margin-bottom: 15px;" disabled>Extract All Slots in This Card</button>
+                    
+                    <!-- Debug Results Display -->
+                    <div id="debugResultsContainer" style="display: none; margin-top: 15px;">
+                        <h5 style="color: #667eea; margin-top: 0;">Debug Results</h5>
+                        <div id="debugResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <!-- Results will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="step4" class="tab-content">
+                <h3>Player Name Extraction</h3>
+                <div class="json-viewer">
+                    <pre id="step4Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="step5" class="tab-content">
+                <h3>Final Assembly & Validation</h3>
+                <div class="json-viewer">
+                    <pre id="step5Json">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="claudeFullResult" class="tab-content">
+                <h3>Claude Full-Screenshot Extraction</h3>
+                <p style="color: #94a3b8; margin-bottom: 15px;">
+                    Extract complete match result directly from the full screenshot using Claude Vision.
+                    This bypasses the 5-step pipeline and returns all teams, players, and kills in one call.
+                </p>
+                <div class="json-viewer">
+                    <pre id="claudeFullResultJson">No results yet</pre>
+                </div>
+            </div>
+            
+            <div id="console" class="tab-content">
+                <h3>OCR Console (Logs Reset on Reload)</h3>
+                <div class="ocr-console" id="ocrConsole"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reuse Modal -->
+    <div class="modal" id="reuseModal">
+        <div class="modal-content">
+            <h3>⚠️ Existing Result Found</h3>
+            <p id="reuseModalMessage"></p>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="reuseCancel">Cancel</button>
+                <button class="btn btn-secondary" id="reuseFresh">Run Fresh Again</button>
+                <button class="btn btn-primary" id="reuseExisting">Reuse Existing</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Kill Crops Preview Modal -->
+    <div class="modal" id="killCropsModal">
+        <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto; position: relative;">
+            <button style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" id="killCropsModalClose" title="Close">×</button>
+            <h3>🔍 Kill Box Crops Preview</h3>
+            <p style="color: #94a3b8; font-size: 13px;">Verify that kill boxes are correctly cropped before running Step 3 OCR.</p>
+            <div id="killCropsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin: 20px 0;">
+                <!-- Crops will be inserted here -->
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="killCropsClose">Close</button>
+                <button class="btn btn-secondary" id="killCropsSkip">Skip Preview</button>
+                <button class="btn btn-primary" id="killCropsProceed">Proceed to Step 3</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // API Configuration
+        const API_BASE_URL = 'http://13.58.161.63:8000';
+        
+        // Generate unique run ID
+        const runId = 'run_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        document.getElementById('runId').textContent = runId;
+        
+        // State Management (NO LOGS OR ERRORS IN STATE)
+        const state = {
+            runId: runId,
+            screenshot: null,
+            screenshotUrl: null,
+            step1Results: null,
+            step2Results: null,
+            step2_5Results: null,
+            step3Results: null,
+            step4Results: null,
+            step5Results: null
+        };
+        
+        // Storage Keys (ONLY STEP DATA)
+        const STORAGE_KEYS = {
+            step1: `ocr_step1_v1`,
+            step2: `ocr_step2_v1`,
+            step2_5: `ocr_step2_5_v1`,
+            step3: `ocr_step3_v1`,
+            step4: `ocr_step4_v1`,
+            step5: `ocr_step5_v1`,
+            screenshot: `ocr_screenshot_base64`
+        };
+        
+        // Load state from sessionStorage (ONLY STEP DATA)
+        function loadState() {
+            const keys = Object.keys(STORAGE_KEYS);
+            for (const key of keys) {
+                const storageKey = STORAGE_KEYS[key];
+                const saved = sessionStorage.getItem(storageKey);
+                if (saved) {
+                    try {
+                        if (key === 'screenshot') {
+                            // Screenshot is stored as plain string, not JSON
+                            state.screenshotUrl = saved;
+                            document.getElementById('previewImage').src = state.screenshotUrl;
+                            document.getElementById('previewImage').style.display = 'block';
+                            document.getElementById('previewPlaceholder').style.display = 'none';
+                        } else {
+                            const data = JSON.parse(saved);
+                            state[`${key}Results`] = data.data;
+                        }
+                    } catch (e) {
+                        console.error(`Failed to load ${key}:`, e);
+                    }
+                }
+            }
+            
+            updateUI();
+        }
+        
+        // Save step result to sessionStorage (ONLY STEP DATA)
+        function saveStepResult(stepNum, data) {
+            // Handle decimal step numbers (e.g., 2.5)
+            const storageKey = stepNum === 2.5 ? STORAGE_KEYS.step2_5 : STORAGE_KEYS[`step${stepNum}`];
+            const stateKey = stepNum === 2.5 ? 'step2_5Results' : `step${stepNum}Results`;
+            
+            const wrapped = {
+                run_id: runId,
+                step: stepNum,
+                timestamp: Date.now(),
+                model: 'claude-3-7-sonnet-vision',
+                data: data
+            };
+            sessionStorage.setItem(storageKey, JSON.stringify(wrapped));
+            state[stateKey] = data;
+        }
+        
+        // Progress tracking
+        const progressState = {
+            currentStep: 0,
+            steps: [
+                {name: 'Upload Image', status: 'pending'},
+                {name: 'Card Detection', status: 'pending'},
+                {name: 'Player Slots', status: 'pending'},
+                {name: 'Kill Extraction', status: 'pending'},
+                {name: 'Name Extraction', status: 'pending'},
+                {name: 'Final Assembly', status: 'pending'}
+            ]
+        };
+        
+        function updateProgress(stepIndex, status, message = '') {
+            // Map Step 2.5 to Step 2 progress
+            const mappedIndex = stepIndex === 2.5 ? 2 : stepIndex;
+            if (progressState.steps[mappedIndex]) {
+                progressState.steps[mappedIndex].status = status;
+            }
+            renderProgress(message);
+        }
+        
+        function renderProgress(message = '') {
+            const progress = document.getElementById('stepProgress');
+            const progressFill = document.getElementById('progressFill');
+            const statusText = document.getElementById('statusText');
+            const stepItems = document.getElementById('stepItems');
+            
+            // Calculate progress percentage
+            const completed = progressState.steps.filter(s => s.status === 'complete').length;
+            const percentage = (completed / progressState.steps.length) * 100;
+            progressFill.style.width = percentage + '%';
+            
+            // Update status text
+            if (message) {
+                statusText.textContent = message;
+                statusText.classList.add('loading');
+            } else {
+                statusText.textContent = `${completed}/${progressState.steps.length} steps complete`;
+                statusText.classList.remove('loading');
+            }
+            
+            // Render step items
+            stepItems.innerHTML = progressState.steps.map((step, idx) => {
+                const indicator = idx + 1;
+                return `
+                    <div class="step-item ${step.status}">
+                        <span class="step-indicator">${step.status === 'active' ? '<span class="loader"></span>' : indicator}</span>
+                        <span>${step.name}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            // Show progress panel if any step is active or complete
+            const hasActivity = progressState.steps.some(s => s.status === 'active' || s.status === 'complete');
+            progress.classList.toggle('active', hasActivity);
+        }
+        
+        // Logging (UI ONLY, NOT PERSISTED)
+        function appendLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            const console = document.getElementById('ocrConsole');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = logEntry;
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        // Error Toast (UI ONLY, NOT PERSISTED)
+        function showError(message) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = '❌ ' + message;
+            toast.classList.add('active');
+            
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 5000);
+            
+            appendLog(`ERROR: ${message}`, 'error');
+        }
+        
+        // UI Updates
+        function updateUI() {
+            updateStepButtons();
+            updateResults();
+        }
+        
+        function updateStepButtons() {
+            const buttons = [
+                {btn: document.getElementById('step1Btn'), has: state.screenshot},
+                {btn: document.getElementById('step2Btn'), has: state.step1Results},
+                {btn: document.getElementById('step2_5Btn'), has: state.step2Results},
+                {btn: document.getElementById('previewKillsBtn'), has: state.step2Results},
+                {btn: document.getElementById('step3Btn'), has: state.step2Results},
+                {btn: document.getElementById('step4Btn'), has: state.step3Results},
+                {btn: document.getElementById('step5Btn'), has: state.step4Results}
+            ];
+            
+            buttons.forEach((item, idx) => {
+                const stepNum = idx + 1;
+                const hasCached = sessionStorage.getItem(STORAGE_KEYS[`step${stepNum}`]) !== null;
+                const hasData = item.has;
+                
+                item.btn.classList.remove('disabled', 'success', 'cached');
+                
+                if (!item.has && !hasCached) {
+                    item.btn.classList.add('disabled');
+                    item.btn.title = `Step ${stepNum - 1} must be completed first`;
+                } else if (hasData) {
+                    item.btn.classList.add('success');
+                    item.btn.title = '';
+                } else if (hasCached) {
+                    item.btn.classList.add('cached');
+                    item.btn.title = `Cached result available`;
+                }
+            });
+        }
+        
+        function updateResults() {
+            if (state.step1Results) {
+                document.getElementById('step1Json').textContent = JSON.stringify(state.step1Results, null, 2);
+            }
+            if (state.step2Results) {
+                document.getElementById('step2Json').textContent = JSON.stringify(state.step2Results, null, 2);
+            }
+            if (state.step2_5Results) {
+                document.getElementById('step2_5Json').textContent = JSON.stringify(state.step2_5Results, null, 2);
+            }
+            if (state.step3Results) {
+                document.getElementById('step3Json').textContent = JSON.stringify(state.step3Results, null, 2);
+            }
+            if (state.step4Results) {
+                document.getElementById('step4Json').textContent = JSON.stringify(state.step4Results, null, 2);
+            }
+            if (state.step5Results) {
+                document.getElementById('step5Json').textContent = JSON.stringify(state.step5Results, null, 2);
+            }
+        }
+        
+        // Check for cached result before running step
+        async function checkCachedResult(stepNum) {
+            const key = STORAGE_KEYS[`step${stepNum}`];
+            const cached = sessionStorage.getItem(key);
+            
+            if (!cached) {
+                return null;
+            }
+            
+            try {
+                const data = JSON.parse(cached);
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        // Show reuse modal
+        function showReuseModal(stepNum, cachedData) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('reuseModal');
+                const message = document.getElementById('reuseModalMessage');
+                
+                message.textContent = `We found an existing result for Step ${stepNum} (${new Date(cachedData.timestamp).toLocaleString()}). Would you like to reuse it or generate a fresh result?`;
+                
+                const handleReuse = () => {
+                    modal.classList.remove('active');
+                    resolve('reuse');
+                    cleanup();
+                };
+                
+                const handleFresh = () => {
+                    modal.classList.remove('active');
+                    invalidatePipelineFrom(stepNum);
+                    resolve('fresh');
+                    cleanup();
+                };
+                
+                const handleCancel = () => {
+                    modal.classList.remove('active');
+                    resolve('cancel');
+                    cleanup();
+                };
+                
+                const cleanup = () => {
+                    document.getElementById('reuseExisting').removeEventListener('click', handleReuse);
+                    document.getElementById('reuseFresh').removeEventListener('click', handleFresh);
+                    document.getElementById('reuseCancel').removeEventListener('click', handleCancel);
+                };
+                
+                document.getElementById('reuseExisting').addEventListener('click', handleReuse);
+                document.getElementById('reuseFresh').addEventListener('click', handleFresh);
+                document.getElementById('reuseCancel').addEventListener('click', handleCancel);
+                
+                modal.classList.add('active');
+            });
+        }
+        
+        // Invalidate pipeline from step onwards (ONLY STEP DATA)
+        function invalidatePipelineFrom(stepNum) {
+            for (let i = stepNum; i <= 5; i++) {
+                const key = STORAGE_KEYS[`step${i}`];
+                sessionStorage.removeItem(key);
+                state[`step${i}Results`] = null;
+            }
+            appendLog(`Pipeline invalidated from Step ${stepNum} onwards`, 'warning');
+            updateUI();
+        }
+        
+        // Upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const previewImage = document.getElementById('previewImage');
+        const previewPlaceholder = document.getElementById('previewPlaceholder');
+        
+        uploadArea.addEventListener('click', () => imageInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageUpload(file);
+            }
+        });
+        
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageUpload(file);
+            }
+        });
+        
+        function handleImageUpload(file) {
+            state.screenshot = file;
+            updateProgress(0, 'active', `📸 Uploading ${file.name}...`);
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                state.screenshotUrl = e.target.result;
+                previewImage.src = state.screenshotUrl;
+                previewImage.style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+                
+                // Save screenshot to sessionStorage for later steps
+                sessionStorage.setItem(STORAGE_KEYS.screenshot, state.screenshotUrl);
+                
+                invalidatePipelineFrom(1);
+                
+                updateProgress(0, 'complete');
+                appendLog(`Image uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'success');
+                updateUI();
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Step execution
+        document.getElementById('step1Btn').addEventListener('click', runStep1);
+        document.getElementById('step2Btn').addEventListener('click', runStep2);
+        document.getElementById('step3Btn').addEventListener('click', runStep3);
+        document.getElementById('step4Btn').addEventListener('click', runStep4);
+        document.getElementById('step5Btn').addEventListener('click', runStep5);
+        
+        async function runStep1() {
+            if (!state.screenshot) return;
+            
+            const cached = await checkCachedResult(1);
+            if (cached) {
+                const choice = await showReuseModal(1, cached);
+                if (choice === 'reuse') {
+                    state.step1Results = cached.data;
+                    updateProgress(1, 'complete');
+                    appendLog('Step 1: Using cached result', 'success');
+                    updateUI();
+                    return;
+                } else if (choice === 'cancel') {
+                    return;
+                }
+            }
+            
+            updateProgress(1, 'active', '🔍 Detecting team cards...');
+            appendLog('Step 1: Sending screenshot to backend...', 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', state.screenshot);
+                formData.append('request_id', runId);
+                
+                const response = await fetch(`${API_BASE_URL}/ocr/cards/detect`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    saveStepResult(1, data);
+                    updateProgress(1, 'complete');
+                    appendLog(`Step 1: Detected ${data.cards.length} cards`, 'success');
+                    updateUI();
+                } else {
+                    updateProgress(1, 'error');
+                    showError(`Step 1 failed: ${data.error}`);
+                }
+            } catch (error) {
+                updateProgress(1, 'error');
+                showError(`Step 1 error: ${error.message}`);
+            }
+        }
+        
+        async function runStep2() {
+            if (!state.step1Results) return;
+            
+            const cached = await checkCachedResult(2);
+            if (cached) {
+                // Validate cached result is real (not fake)
+                if (cached.data && cached.data.message === "Player slots detected (simulated)") {
+                    appendLog('Step 2: Cached result is invalid (fake data), clearing...', 'warning');
+                    sessionStorage.removeItem(STORAGE_KEYS.step2);
+                } else if (cached.data && cached.data.players && cached.data.players.length > 0) {
+                    const choice = await showReuseModal(2, cached);
+                    if (choice === 'reuse') {
+                        state.step2Results = cached.data;
+                        updateProgress(2, 'complete');
+                        appendLog(`Step 2: Using cached result (${cached.data.players.length} players)`, 'success');
+                        updateUI();
+                        return;
+                    } else if (choice === 'cancel') {
+                        return;
+                    }
+                }
+            }
+            
+            updateProgress(2, 'active', '👥 Detecting player slots...');
+            appendLog('Step 2: Sending cards to backend for player detection...', 'info');
+            
+            try {
+                // Extract base64 from data URI
+                let base64Data = state.screenshotUrl;
+                if (base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Call real Step 2 endpoint with screenshot and Step 1 results
+                const response = await fetch(`${API_BASE_URL}/ocr/cards/players/detect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data,
+                        step1_cards: state.step1Results.cards
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Validate response has real data
+                    if (data.players && data.players.length > 0) {
+                        appendLog(`Step 2: Detected ${data.players.length} player slots`, 'success');
+                        
+                        // Run Step 2.5: Refine kill boxes
+                        appendLog('Step 2.5: Refining kill boxes with padding...', 'info');
+                        await refineKillBoxes(data);
+                        
+                        saveStepResult(2, data);
+                        updateProgress(2, 'complete');
+                        updateUI();
+                    } else {
+                        updateProgress(2, 'error');
+                        showError('Step 2: No players detected - check card bounds');
+                    }
+                } else {
+                    updateProgress(2, 'error');
+                    showError(`Step 2 failed: ${data.error}`);
+                }
+            } catch (error) {
+                updateProgress(2, 'error');
+                showError(`Step 2 error: ${error.message}`);
+            }
+        }
+        
+        // Step 2.5: Standalone refine kill boxes (loads from sessionStorage, no Sonnet re-run)
+        async function runStep2_5() {
+            if (!state.step2Results) {
+                // Try to load from sessionStorage
+                const cached = sessionStorage.getItem(STORAGE_KEYS.step2);
+                if (cached) {
+                    try {
+                        const data = JSON.parse(cached);
+                        state.step2Results = data.data;
+                        appendLog('Step 2.5: Loaded Step 2 from cache', 'info');
+                    } catch (e) {
+                        showError('Step 2.5: Failed to load Step 2 cache');
+                        return;
+                    }
+                } else {
+                    showError('Step 2.5: No Step 2 results available');
+                    return;
+                }
+            }
+            
+            updateProgress(2.5, 'active', '📦 Refining kill boxes...');
+            appendLog('Step 2.5: Refining kill boxes with padding...', 'info');
+            
+            try {
+                await refineKillBoxes(state.step2Results);
+                updateProgress(2.5, 'complete');
+                appendLog('Step 2.5: Kill box refinement complete', 'success');
+                initDebugMode();  // Initialize debug mode UI
+                updateUI();
+            } catch (error) {
+                updateProgress(2.5, 'error');
+                showError(`Step 2.5 error: ${error.message}`);
+            }
+        }
+        
+        // Internal: Step 2.5 refinement logic (called by both auto and manual)
+        async function refineKillBoxes(step2Data) {
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data && base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Store refinement results
+                const refinementResults = {
+                    timestamp: Date.now(),
+                    refined_players: [],
+                    preview_crops: [],
+                    summary: {
+                        total_players: 0,
+                        valid_players: 0,
+                        cards_processed: 0
+                    }
+                };
+                
+                // For each card, refine its players
+                for (const card of state.step1Results.cards) {
+                    const cardPlayers = step2Data.players.filter(p => p.card_index === card.card_index);
+                    if (cardPlayers.length === 0) continue;
+                    
+                    // Crop the card from screenshot
+                    const cardCropBytes = await cropImageInBrowser(base64Data, card.bounds.x1, card.bounds.y1, card.bounds.x2, card.bounds.y2);
+                    
+                    const cardWidth = card.bounds.x2 - card.bounds.x1;
+                    const cardHeight = card.bounds.y2 - card.bounds.y1;
+                    
+                    // Call refinement endpoint
+                    const response = await fetch(`${API_BASE_URL}/ocr/players/refine-kill-boxes`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            players: cardPlayers,
+                            card_crop: cardCropBytes,
+                            card_width: cardWidth,
+                            card_height: cardHeight
+                        })
+                    });
+                    
+                    const refinedData = await response.json();
+                    
+                    if (response.ok && refinedData.refined_players) {
+                        // Update players with refined kill boxes (static geometry already includes kill_box)
+                        for (let i = 0; i < step2Data.players.length; i++) {
+                            const player = step2Data.players[i];
+                            if (player.card_index === card.card_index) {
+                                const refined = refinedData.refined_players.find(p => 
+                                    p.card_index === player.card_index && p.slot_index === player.slot_index
+                                );
+                                if (refined) {
+                                    // Static geometry returns kill_box (already padded), not kill_box_refined
+                                    step2Data.players[i].kill_box = refined.kill_box || step2Data.players[i].kill_box;
+                                    step2Data.players[i].kill_box_valid = refined.kill_box_valid;
+                                    step2Data.players[i].kill_box_dimensions = refined.kill_box_dimensions;
+                                    
+                                    // Store in results
+                                    refinementResults.refined_players.push(refined);
+                                    refinementResults.summary.total_players++;
+                                    if (refined.kill_box_valid) {
+                                        refinementResults.summary.valid_players++;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Collect preview crops from this card
+                        if (refinedData.preview_crops) {
+                            refinementResults.preview_crops.push(...refinedData.preview_crops);
+                        }
+                        
+                        refinementResults.summary.cards_processed++;
+                        appendLog(`Step 2.5: Refined card ${card.card_index} (${refinedData.valid_count}/${refinedData.total_count} valid)`, 'success');
+                    } else {
+                        appendLog(`Step 2.5: Warning - refinement failed for card ${card.card_index}: ${refinedData.error || 'unknown error'}`, 'warning');
+                    }
+                }
+                
+                // Store results in state and sessionStorage
+                state.step2_5Results = refinementResults;
+                saveStepResult(2.5, refinementResults);
+                
+                // Display preview crops if available
+                displayPreviewCrops(refinementResults);
+            } catch (error) {
+                appendLog(`Step 2.5: Error during refinement: ${error.message}`, 'warning');
+            }
+        }
+        
+        // Display preview crops from Step 2.5
+        function displayPreviewCrops(refinementResults) {
+            const cropContainer = document.getElementById('killCropsContainer');
+            if (!cropContainer) return;
+            
+            cropContainer.innerHTML = '';
+            
+            if (!refinementResults.preview_crops || refinementResults.preview_crops.length === 0) {
+                cropContainer.innerHTML = '<p>No preview crops available</p>';
+                return;
+            }
+            
+            for (const crop of refinementResults.preview_crops) {
+                if (crop.crop_base64) {
+                    const cropDiv = document.createElement('div');
+                    cropDiv.className = 'crop-item';
+                    cropDiv.innerHTML = `
+                        <div class="crop-label">Card ${crop.card_index} Slot ${crop.slot_index}</div>
+                        <img src="data:image/jpeg;base64,${crop.crop_base64}" alt="Kill crop" class="crop-image">
+                        <div class="crop-size">${crop.width}×${crop.height}px</div>
+                    `;
+                    cropContainer.appendChild(cropDiv);
+                }
+            }
+        }
+        
+        // Preview kill crops before Step 3 (uses Step 2.5 refined boxes from sessionStorage)
+        async function previewKillCrops() {
+            if (!state.step2Results || !state.step2Results.players) {
+                showError('No player data from Step 2');
+                return;
+            }
+            
+            appendLog('Kill Crops: Generating preview images...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data && base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                if (!base64Data) {
+                    showError('Screenshot not available');
+                    return;
+                }
+                
+                // Build kill boxes with refined coordinates for backend
+                const killBoxes = [];
+                for (const player of state.step2Results.players) {
+                    if (player.kill_box_refined) {
+                        // Crop the card first
+                        const cardBounds = state.step1Results.cards.find(c => c.card_index === player.card_index)?.bounds;
+                        if (!cardBounds) continue;
+                        
+                        // Crop card from screenshot
+                        const cardCropBytes = await cropImageInBrowser(base64Data, cardBounds.x1, cardBounds.y1, cardBounds.x2, cardBounds.y2);
+                        
+                        killBoxes.push({
+                            card_index: player.card_index,
+                            slot_index: player.slot_index,
+                            box: player.kill_box_refined,  // Use refined box
+                            card_crop: cardCropBytes
+                        });
+                    }
+                }
+                
+                if (killBoxes.length === 0) {
+                    showError('No refined kill boxes found');
+                    return;
+                }
+                
+                appendLog(`Kill Crops: Sending ${killBoxes.length} boxes to backend...`, 'info');
+                
+                // Call debug endpoint to get upscaled previews
+                const response = await fetch(`${API_BASE_URL}/ocr/kills/debug-crops`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        kill_boxes: killBoxes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.crops) {
+                    // Display crops in modal
+                    displayKillCropPreviews(data.crops);
+                    appendLog(`Kill Crops: Previewed ${data.crops.length} crops`, 'success');
+                } else {
+                    showError(`Kill Crops failed: ${data.error}`);
+                }
+            } catch (error) {
+                showError(`Kill Crops error: ${error.message}`);
+            }
+        }
+        
+        // Helper: Crop image in browser using canvas
+        function cropImageInBrowser(base64Data, x1, y1, x2, y2) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const width = x2 - x1;
+                    const height = y2 - y1;
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, x1, y1, width, height, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg').split(',')[1]);
+                };
+                img.src = 'data:image/jpeg;base64,' + base64Data;
+            });
+        }
+        
+        // Display kill crop previews in modal
+        function displayKillCropPreviews(crops) {
+            const grid = document.getElementById('killCropsGrid');
+            grid.innerHTML = '';
+            
+            let validCount = 0;
+            
+            for (const crop of crops) {
+                const isValid = !crop.error && crop.width >= 10 && crop.height >= 10;
+                if (isValid) validCount++;
+                
+                const cropDiv = document.createElement('div');
+                cropDiv.style.cssText = `
+                    border: 2px solid ${isValid ? '#10b981' : '#ef4444'};
+                    border-radius: 8px;
+                    padding: 10px;
+                    background: #0f172a;
+                    text-align: center;
+                `;
+                
+                let html = `<div style="font-size: 12px; color: #cbd5e1; margin-bottom: 8px;">
+                    Card ${crop.card_index} / Slot ${crop.slot_index}
+                </div>`;
+                
+                if (crop.error) {
+                    html += `<div style="color: #ef4444; font-size: 11px; padding: 10px;">❌ ${crop.error}</div>`;
+                } else if (crop.warning) {
+                    html += `<img src="data:image/jpeg;base64,${crop.crop_base64}" style="width: 100%; border-radius: 4px; opacity: 0.5;">
+                    <div style="color: #f59e0b; font-size: 11px; margin-top: 5px;">⚠️ ${crop.warning}</div>`;
+                } else {
+                    html += `<img src="data:image/jpeg;base64,${crop.crop_base64}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="zoomCrop(this)">
+                    <div style="color: #10b981; font-size: 11px; margin-top: 5px;">✓ ${crop.width}×${crop.height}</div>`;
+                }
+                
+                cropDiv.innerHTML = html;
+                grid.appendChild(cropDiv);
+            }
+            
+            // Update proceed button
+            const proceedBtn = document.getElementById('killCropsProceed');
+            if (validCount > 0) {
+                proceedBtn.disabled = false;
+                proceedBtn.textContent = `Proceed to Step 3 (${validCount}/${crops.length} valid)`;
+            } else {
+                proceedBtn.disabled = true;
+                proceedBtn.textContent = 'No Valid Crops - Re-run Step 2';
+            }
+            
+            // Show modal
+            document.getElementById('killCropsModal').classList.add('active');
+        }
+        
+        // Zoom crop image
+        function zoomCrop(img) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                cursor: pointer;
+            `;
+            const zoomedImg = document.createElement('img');
+            zoomedImg.src = img.src;
+            zoomedImg.style.cssText = 'max-width: 90%; max-height: 90%;';
+            modal.appendChild(zoomedImg);
+            modal.onclick = () => modal.remove();
+            document.body.appendChild(modal);
+        }
+        
+        // ============ OCR DEBUG MODE ============
+        
+        // Restore backend context (screenshot + card boxes) from cached data
+        async function restoreDebugContext() {
+            // Get screenshot from state
+            let base64Data = state.screenshotUrl;
+            if (base64Data && base64Data.includes(',')) {
+                base64Data = base64Data.split(',')[1];
+            }
+            
+            // Get cards from Step 1 results
+            const cards = state.step1Results?.cards || [];
+            
+            if (!base64Data || cards.length === 0) {
+                appendLog('Debug: Cannot restore context - missing screenshot or Step 1 data', 'warning');
+                return false;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ocr/debug/restore-context`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data,
+                        cards: cards
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    appendLog(`Debug: Restored backend context (${data.card_count} cards)`, 'success');
+                    return true;
+                } else {
+                    appendLog(`Debug: Failed to restore context: ${data.error}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                appendLog(`Debug: Error restoring context: ${error.message}`, 'warning');
+                return false;
+            }
+        }
+        
+        // Initialize debug mode UI
+        function initDebugMode() {
+            // Populate card dropdown from Step 2.5 refined players
+            if (!state.step2Results || !state.step2Results.players) return;
+            
+            const cardSelect = document.getElementById('debugCardSelect');
+            const uniqueCards = new Set();
+            
+            for (const player of state.step2Results.players) {
+                if (player.kill_box_refined) {
+                    uniqueCards.add(player.card_index);
+                }
+            }
+            
+            // Clear and repopulate
+            cardSelect.innerHTML = '<option value="">Select Card...</option>';
+            for (const card of Array.from(uniqueCards).sort((a, b) => a - b)) {
+                const option = document.createElement('option');
+                option.value = card;
+                option.textContent = `Card ${card}`;
+                cardSelect.appendChild(option);
+            }
+            
+            // Enable buttons if Step 2.5 is done
+            const hasSomeRefined = state.step2Results.players.some(p => p.kill_box_refined);
+            document.getElementById('debugSingleBtn').disabled = !hasSomeRefined;
+            document.getElementById('debugCardBtn').disabled = !hasSomeRefined;
+        }
+        
+        // Run debug on single slot
+        async function debugSingleSlot() {
+            const cardIndex = parseInt(document.getElementById('debugCardSelect').value);
+            const slotIndex = parseInt(document.getElementById('debugSlotSelect').value);
+            
+            if (!cardIndex || !slotIndex) {
+                showError('Please select both card and slot');
+                return;
+            }
+            
+            // Find player
+            const player = state.step2Results.players.find(p => 
+                p.card_index === cardIndex && p.slot_index === slotIndex
+            );
+            
+            if (!player || !player.kill_box_refined) {
+                showError('No refined kill box for this slot');
+                return;
+            }
+            
+            appendLog(`Debug: Running OCR for Card ${cardIndex} Slot ${slotIndex}...`, 'info');
+            appendLog(`Debug: Using padded kill_box from Step 2.5: ${JSON.stringify(player.kill_box_refined)}`, 'info');
+            
+            try {
+                // First, restore backend context (screenshot + card boxes) from cached data
+                const contextRestored = await restoreDebugContext();
+                if (!contextRestored) {
+                    showError('Failed to restore debug context. Please run Step 1 first.');
+                    return;
+                }
+                
+                // Call debug endpoint with PADDED kill_box coordinates from Step 2.5
+                // NOTE: Backend uses stored original screenshot from Step 1, NOT request parameter
+                const response = await fetch(`${API_BASE_URL}/ocr/debug/single-slot`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        card_index: cardIndex,
+                        slot_index: slotIndex,
+                        kill_box: player.kill_box_refined  // PADDED coordinates from Step 2.5
+                        // screenshot NOT sent - backend uses stored original from Step 1
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.result) {
+                    displayDebugResults([data.result]);
+                    appendLog(`Debug: Complete for Card ${cardIndex} Slot ${slotIndex}`, 'success');
+                } else {
+                    showError(`Debug failed: ${data.error}`);
+                }
+            } catch (error) {
+                showError(`Debug error: ${error.message}`);
+            }
+        }
+        
+        // Run debug on all slots in a card
+        async function debugFullCard() {
+            const cardIndex = parseInt(document.getElementById('debugCardSelect').value);
+            
+            if (!cardIndex) {
+                showError('Please select a card');
+                return;
+            }
+            
+            appendLog(`Debug: Running OCR for all slots in Card ${cardIndex}...`, 'info');
+            
+            const results = [];
+            
+            try {
+                // First, restore backend context (screenshot + card boxes) from cached data
+                const contextRestored = await restoreDebugContext();
+                if (!contextRestored) {
+                    showError('Failed to restore debug context. Please run Step 1 first.');
+                    return;
+                }
+                
+                // Loop through slots 1-4
+                for (let slotIndex = 1; slotIndex <= 4; slotIndex++) {
+                    const player = state.step2Results.players.find(p => 
+                        p.card_index === cardIndex && p.slot_index === slotIndex
+                    );
+                    
+                    if (!player || !player.kill_box_refined) {
+                        appendLog(`Debug: Skipping Card ${cardIndex} Slot ${slotIndex} (no refined box)`, 'warning');
+                        continue;
+                    }
+                    
+                    // Call debug endpoint with PADDED kill_box coordinates from Step 2.5
+                    // NOTE: Backend uses stored original screenshot from Step 1, NOT request parameter
+                    const response = await fetch(`${API_BASE_URL}/ocr/debug/single-slot`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            card_index: cardIndex,
+                            slot_index: slotIndex,
+                            kill_box: player.kill_box_refined  // PADDED coordinates from Step 2.5
+                            // screenshot NOT sent - backend uses stored original from Step 1
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.result) {
+                        results.push(data.result);
+                        appendLog(`Debug: Card ${cardIndex} Slot ${slotIndex} → ${data.result.debug.parsed_digit || '?'}`, 'success');
+                    } else {
+                        appendLog(`Debug: Card ${cardIndex} Slot ${slotIndex} failed`, 'warning');
+                    }
+                }
+                
+                if (results.length > 0) {
+                    displayDebugResults(results);
+                    appendLog(`Debug: Complete for Card ${cardIndex} (${results.length} slots)`, 'success');
+                } else {
+                    showError('No results for this card');
+                }
+            } catch (error) {
+                showError(`Debug error: ${error.message}`);
+            }
+        }
+        
+        // Display debug results
+        function displayDebugResults(results) {
+            const container = document.getElementById('debugResultsContainer');
+            const grid = document.getElementById('debugResultsGrid');
+            
+            grid.innerHTML = '';
+            
+            for (const result of results) {
+                const card = result.card_index;
+                const slot = result.slot_index;
+                const debug = result.debug;
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.style.cssText = `
+                    border: 2px solid ${debug.parsed_digit !== null ? '#10b981' : '#f59e0b'};
+                    border-radius: 8px;
+                    padding: 15px;
+                    background: #0f172a;
+                `;
+                
+                let html = `
+                    <div style="font-weight: bold; color: #667eea; margin-bottom: 10px;">
+                        Card ${card} / Slot ${slot}
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Raw Crop:</div>
+                        <img src="data:image/jpeg;base64,${debug.raw_crop}" style="width: 100%; border-radius: 4px; margin-bottom: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Upscaled (3×):</div>
+                        <img src="data:image/jpeg;base64,${debug.upscaled_crop}" style="width: 100%; border-radius: 4px; margin-bottom: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Preprocessed:</div>
+                        <img src="data:image/jpeg;base64,${debug.preprocessed_crop}" style="width: 100%; border-radius: 4px; margin-bottom: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Threshold:</div>
+                        <img src="data:image/jpeg;base64,${debug.threshold_crop}" style="width: 100%; border-radius: 4px; margin-bottom: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Denoised:</div>
+                        <img src="data:image/jpeg;base64,${debug.denoised_crop}" style="width: 100%; border-radius: 4px; margin-bottom: 5px;">
+                    </div>
+                    
+                    <div style="background: #1e293b; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 5px;"><strong>OCR Outputs:</strong></div>
+                        <div style="font-size: 10px; color: #cbd5e1; margin-bottom: 5px;">
+                            <strong>Tesseract:</strong> ${debug.tesseract_raw || '(empty)'}
+                        </div>
+                        <div style="font-size: 10px; color: #cbd5e1; margin-bottom: 5px;">
+                            <strong>Paddle:</strong> ${debug.paddle_raw.substring(0, 50) || '(empty)'}...
+                        </div>
+                        <div style="font-size: 10px; color: #cbd5e1;">
+                            <strong>Claude:</strong> ${debug.claude_raw || '(empty)'}
+                        </div>
+                    </div>
+                    
+                    <div style="background: #1e293b; padding: 10px; border-radius: 4px;">
+                        <div style="font-size: 12px; color: ${debug.parsed_digit !== null ? '#10b981' : '#f59e0b'}; font-weight: bold;">
+                            Parsed Digit: ${debug.parsed_digit !== null ? debug.parsed_digit : 'NONE'}
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8;">
+                            Confidence: ${debug.confidence}
+                        </div>
+                    </div>
+                `;
+                
+                resultDiv.innerHTML = html;
+                grid.appendChild(resultDiv);
+            }
+            
+            container.style.display = 'block';
+        }
+        
+        async function runStep3() {
+            if (!state.step2Results) return;
+            
+            const cached = await checkCachedResult(3);
+            if (cached) {
+                // Validate cached result is real (not fake empty array)
+                if (cached.data && cached.data.results && cached.data.results.length > 0) {
+                    const choice = await showReuseModal(3, cached);
+                    if (choice === 'reuse') {
+                        state.step3Results = cached.data;
+                        updateProgress(3, 'complete');
+                        appendLog(`Step 3: Using cached result (${cached.data.results.length} kills)`, 'success');
+                        updateUI();
+                        return;
+                    } else if (choice === 'cancel') {
+                        return;
+                    }
+                } else {
+                    appendLog('Step 3: Cached result is invalid (empty), clearing...', 'warning');
+                    sessionStorage.removeItem(STORAGE_KEYS.step3);
+                }
+            }
+            
+            updateProgress(3, 'active', '🔢 Extracting kill counts...');
+            appendLog('Step 3: Sending kill crops to backend...', 'info');
+            
+            try {
+                // Build kill crops from Step 2 player data
+                const killCrops = [];
+                if (state.step2Results && state.step2Results.players) {
+                    for (const player of state.step2Results.players) {
+                        if (player.kill_box) {
+                            killCrops.push({
+                                card_index: player.card_index,
+                                slot_index: player.slot_index,
+                                kill_box: player.kill_box
+                            });
+                        }
+                    }
+                }
+                
+                if (killCrops.length === 0) {
+                    updateProgress(3, 'error');
+                    showError('Step 3: No kill boxes found from Step 2');
+                    return;
+                }
+                
+                appendLog(`Step 3: Processing ${killCrops.length} kill crops...`, 'info');
+                
+                // Extract base64 from data URI
+                let base64Data = state.screenshotUrl;
+                if (base64Data && base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Call real Step 3 endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        kill_crops: killCrops,
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        saveStepResult(3, data);
+                        updateProgress(3, 'complete');
+                        appendLog(`Step 3: Extracted ${data.results.length} kill counts`, 'success');
+                        updateUI();
+                    } else {
+                        updateProgress(3, 'error');
+                        showError('Step 3: No kills extracted');
+                    }
+                } else {
+                    updateProgress(3, 'error');
+                    showError(`Step 3 failed: ${data.error}`);
+                }
+            } catch (error) {
+                updateProgress(3, 'error');
+                showError(`Step 3 error: ${error.message}`);
+            }
+        }
+        
+        async function runStep4() {
+            if (!state.step3Results) return;
+            
+            const cached = await checkCachedResult(4);
+            if (cached) {
+                // Validate cached result is real (not fake empty array)
+                if (cached.data && cached.data.results && cached.data.results.length > 0) {
+                    const choice = await showReuseModal(4, cached);
+                    if (choice === 'reuse') {
+                        state.step4Results = cached.data;
+                        updateProgress(4, 'complete');
+                        appendLog(`Step 4: Using cached result (${cached.data.results.length} names)`, 'success');
+                        updateUI();
+                        return;
+                    } else if (choice === 'cancel') {
+                        return;
+                    }
+                } else {
+                    appendLog('Step 4: Cached result is invalid (empty), clearing...', 'warning');
+                    sessionStorage.removeItem(STORAGE_KEYS.step4);
+                }
+            }
+            
+            updateProgress(4, 'active', '📝 Extracting player names...');
+            appendLog('Step 4: Sending name crops to backend...', 'info');
+            
+            try {
+                // Build name crops from Step 2 player data
+                const nameCrops = [];
+                if (state.step2Results && state.step2Results.players) {
+                    for (const player of state.step2Results.players) {
+                        if (player.name_box) {
+                            nameCrops.push({
+                                card_index: player.card_index,
+                                slot_index: player.slot_index,
+                                name_box: player.name_box
+                            });
+                        }
+                    }
+                }
+                
+                if (nameCrops.length === 0) {
+                    updateProgress(4, 'error');
+                    showError('Step 4: No name boxes found from Step 2');
+                    return;
+                }
+                
+                appendLog(`Step 4: Processing ${nameCrops.length} name crops...`, 'info');
+                
+                // Extract base64 from data URI
+                let base64Data = state.screenshotUrl;
+                if (base64Data && base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Call real Step 4 endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/names/extract`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name_crops: nameCrops,
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        saveStepResult(4, data);
+                        updateProgress(4, 'complete');
+                        appendLog(`Step 4: Extracted ${data.results.length} player names`, 'success');
+                        updateUI();
+                    } else {
+                        updateProgress(4, 'error');
+                        showError('Step 4: No names extracted');
+                    }
+                } else {
+                    updateProgress(4, 'error');
+                    showError(`Step 4 failed: ${data.error}`);
+                }
+            } catch (error) {
+                updateProgress(4, 'error');
+                showError(`Step 4 error: ${error.message}`);
+            }
+        }
+        
+        async function runStep5() {
+            if (!state.step4Results) return;
+            
+            const cached = await checkCachedResult(5);
+            if (cached) {
+                // Validate cached result is real (not fake empty teams)
+                if (cached.data && cached.data.teams && cached.data.teams.length > 0) {
+                    const choice = await showReuseModal(5, cached);
+                    if (choice === 'reuse') {
+                        state.step5Results = cached.data;
+                        updateProgress(5, 'complete');
+                        appendLog(`Step 5: Using cached result (${cached.data.teams.length} teams)`, 'success');
+                        updateUI();
+                        return;
+                    } else if (choice === 'cancel') {
+                        return;
+                    }
+                } else {
+                    appendLog('Step 5: Cached result is invalid (empty), clearing...', 'warning');
+                    sessionStorage.removeItem(STORAGE_KEYS.step5);
+                }
+            }
+            
+            updateProgress(5, 'active', '✨ Assembling final result...');
+            appendLog('Step 5: Assembling all OCR results...', 'info');
+            
+            try {
+                // Call real Step 5 endpoint with all step outputs
+                const response = await fetch(`${API_BASE_URL}/ocr/finalize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        match_id: null,
+                        step1_cards: state.step1Results.cards,
+                        step2_players: state.step2Results.players || [],
+                        step3_kills: state.step3Results.results || [],
+                        step4_names: state.step4Results.results || []
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.teams && data.teams.length > 0) {
+                        saveStepResult(5, data);
+                        updateProgress(5, 'complete');
+                        appendLog(`Step 5: Assembled ${data.teams.length} teams with ${data.teams.reduce((sum, t) => sum + t.players.length, 0)} players`, 'success');
+                        updateUI();
+                    } else {
+                        updateProgress(5, 'error');
+                        showError('Step 5: No teams assembled');
+                    }
+                } else {
+                    updateProgress(5, 'error');
+                    showError(`Step 5 failed: ${data.message || data.error}`);
+                }
+            } catch (error) {
+                updateProgress(5, 'error');
+                showError(`Step 5 error: ${error.message}`);
+            }
+        }
+        
+        async function runClaudeFullResult() {
+            if (!state.screenshot) {
+                showError('Please upload a screenshot first');
+                return;
+            }
+            
+            appendLog('Claude Full Result: Starting full-screenshot extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Call Claude full result endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    appendLog(`Claude Full Result: Extracted ${data.data.teams.length} teams in ${data.latency_seconds.toFixed(2)}s`, 'success');
+                    
+                    // Display result
+                    document.getElementById('claudeFullResultJson').textContent = JSON.stringify(data.data, null, 2);
+                    
+                    // Switch to Claude Full Result tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.querySelector('[data-tab="claudeFullResult"]').classList.add('active');
+                    document.getElementById('claudeFullResult').classList.add('active');
+                    
+                    appendLog('Claude Full Result: Complete. Check the "Claude Full Result" tab.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Claude Full Result: Failed - ${errorMsg}`, 'error');
+                    showError(`Claude Full Result failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Claude Full Result: Error - ${error.message}`, 'error');
+                showError(`Claude Full Result error: ${error.message}`);
+            }
+        }
+        
+        // Step 3: Run OCR (Tesseract) Handler
+        async function runOCRStep3() {
+            if (!state.step2_5Results) {
+                showError('Please complete Step 2.5 (Refine Boxes) first');
+                return;
+            }
+            
+            const runOCRBtn = document.getElementById('runOCRStep3Btn');
+            const runOCRText = document.getElementById('runOCRStep3Text');
+            runOCRBtn.disabled = true;
+            runOCRText.textContent = '⏳ Running OCR...';
+            
+            appendLog('Step 3 (OCR): Starting Tesseract extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Prepare kill crops from refined kill boxes
+                const killCrops = [];
+                if (state.step2_5Results.players) {
+                    for (const card of state.step2_5Results.players) {
+                        for (const player of card.players || []) {
+                            if (player.kill_box_refined) {
+                                killCrops.push({
+                                    card_index: card.card_index,
+                                    slot_index: player.slot_index,
+                                    kill_box: player.kill_box_refined
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                // Call OCR extraction endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        kill_crops: killCrops,
+                        screenshot_base64: base64Data
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.results) {
+                    appendLog(`Step 3 (OCR): Extracted ${data.results.length} kill counts`, 'success');
+                    
+                    // Display OCR results
+                    document.getElementById('ocrResultsJson').textContent = JSON.stringify(data.results, null, 2);
+                    document.getElementById('ocrResultsContainer').style.display = 'block';
+                    
+                    appendLog('Step 3 (OCR): Complete. Check OCR Results above.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Step 3 (OCR): Failed - ${errorMsg}`, 'error');
+                    showError(`OCR extraction failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Step 3 (OCR): Error - ${error.message}`, 'error');
+                showError(`OCR extraction error: ${error.message}`);
+            } finally {
+                runOCRBtn.disabled = false;
+                runOCRText.textContent = '🔵 Run OCR (Tesseract)';
+            }
+        }
+        
+        // Step 3: Run Claude Extraction Handler
+        async function runClaudeStep3() {
+            if (!state.screenshot) {
+                showError('Please upload a screenshot first');
+                return;
+            }
+            
+            const runClaudeBtn = document.getElementById('runClaudeStep3Btn');
+            const runClaudeText = document.getElementById('runClaudeStep3Text');
+            runClaudeBtn.disabled = true;
+            runClaudeText.textContent = '⏳ Running Claude...';
+            
+            appendLog('Step 3 (Claude): Starting Claude extraction...', 'info');
+            
+            try {
+                // Get screenshot base64
+                let base64Data = state.screenshotUrl;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                
+                // Get card boxes if available
+                const cardBoxes = state.step1Results ? state.step1Results.cards : [];
+                
+                // Call Claude full result endpoint
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        screenshot_base64: base64Data,
+                        card_boxes: cardBoxes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    appendLog(`Step 3 (Claude): Extracted ${data.data.teams.length} teams in ${data.latency_seconds.toFixed(2)}s`, 'success');
+                    
+                    // Display Claude results
+                    document.getElementById('claudeResultsJson').textContent = JSON.stringify(data.data, null, 2);
+                    document.getElementById('claudeResultsContainer').style.display = 'block';
+                    
+                    appendLog('Step 3 (Claude): Complete. Check Claude Results above.', 'success');
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    appendLog(`Step 3 (Claude): Failed - ${errorMsg}`, 'error');
+                    showError(`Claude extraction failed: ${errorMsg}`);
+                }
+            } catch (error) {
+                appendLog(`Step 3 (Claude): Error - ${error.message}`, 'error');
+                showError(`Claude extraction error: ${error.message}`);
+            } finally {
+                runClaudeBtn.disabled = false;
+                runClaudeText.textContent = '🔴 Run Claude Extraction';
+            }
+        }
+        
+        // Reset session storage (ONLY STEP DATA)
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            const keys = Object.keys(STORAGE_KEYS);
+            for (const key of keys) {
+                sessionStorage.removeItem(STORAGE_KEYS[key]);
+            }
+            
+            state.step1Results = null;
+            state.step2Results = null;
+            state.step3Results = null;
+            state.step4Results = null;
+            state.step5Results = null;
+            
+            appendLog('Session storage cleared', 'warning');
+            updateUI();
+        });
+        
+        // Clear image
+        document.getElementById('clearImageBtn').addEventListener('click', () => {
+            state.screenshot = null;
+            state.screenshotUrl = null;
+            previewImage.style.display = 'none';
+            previewPlaceholder.style.display = 'block';
+            imageInput.value = '';
+            
+            invalidatePipelineFrom(1);
+            
+            appendLog('Image cleared', 'info');
+        });
+        
+        // Preview kill crops button
+        document.getElementById('previewKillsBtn').addEventListener('click', previewKillCrops);
+        
+        // Kill crops modal buttons
+        document.getElementById('killCropsClose').addEventListener('click', () => {
+            document.getElementById('killCropsModal').classList.remove('active');
+        });
+        
+        document.getElementById('killCropsModalClose').addEventListener('click', () => {
+            document.getElementById('killCropsModal').classList.remove('active');
+        });
+        
+        document.getElementById('killCropsSkip').addEventListener('click', () => {
+            document.getElementById('killCropsModal').classList.remove('active');
+            appendLog('Kill Crops: Skipped preview, proceeding to Step 3...', 'info');
+            runStep3();
+        });
+        
+        document.getElementById('killCropsProceed').addEventListener('click', () => {
+            document.getElementById('killCropsModal').classList.remove('active');
+            runStep3();
+        });
+        
+        // OCR Debug Mode buttons
+        document.getElementById('debugSingleBtn').addEventListener('click', debugSingleSlot);
+        document.getElementById('debugCardBtn').addEventListener('click', debugFullCard);
+        
+        // Step buttons
+        document.getElementById('step1Btn').addEventListener('click', runStep1);
+        document.getElementById('step2Btn').addEventListener('click', runStep2);
+        document.getElementById('step2_5Btn').addEventListener('click', runStep2_5);
+        document.getElementById('step3Btn').addEventListener('click', runStep3);
+        document.getElementById('step4Btn').addEventListener('click', runStep4);
+        document.getElementById('step5Btn').addEventListener('click', runStep5);
+        
+        // Claude Full Result button
+        document.getElementById('claudeFullResultBtn').addEventListener('click', runClaudeFullResult);
+        
+        // Step 3: OCR vs Claude buttons
+        document.getElementById('runOCRStep3Btn').addEventListener('click', runOCRStep3);
+        document.getElementById('runClaudeStep3Btn').addEventListener('click', runClaudeStep3);
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // Initialize
+        loadState();
+        appendLog('OCR Pipeline ready. Session storage contains only step results.', 'info');
+    </script>
+</body>
+</html>
