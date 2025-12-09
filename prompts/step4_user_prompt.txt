@@ -1,0 +1,14 @@
+You are given a cropped image that contains ONLY a Free Fire player name.
+Extract the exact visible name.
+
+Return strict JSON:
+
+{
+  "name": "EXTRACTED_NAME_HERE"
+}
+
+If the name is unreadable or partially missing, return:
+
+{
+  "name": ""
+}

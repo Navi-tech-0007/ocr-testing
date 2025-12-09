@@ -1,0 +1,15 @@
+You are given a cropped image containing ONLY a kill number from a Free Fire scoreboard.
+This image contains exactly one number between 0 and 20.
+
+Your task:
+- Verify whether the number appears to be a valid integer.
+- If you can visually confirm the number and it matches the 'candidate' field, return "match": true.
+- If it does NOT match, or you are unsure, return "match": false.
+
+Return JSON only:
+
+{
+  "match": true
+}
+
+Candidate number: {{paddle_ocr_result}}
