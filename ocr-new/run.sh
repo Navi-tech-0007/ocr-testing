@@ -15,21 +15,8 @@ echo "================================"
 echo "Step 2 + 2.5: Static Geometry"
 echo ""
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo -e "${YELLOW}Creating virtual environment...${NC}"
-    python3 -m venv venv
-fi
-
-# Activate virtual environment
-echo -e "${YELLOW}Activating virtual environment...${NC}"
-source venv/bin/activate
-
-# Check if dependencies are installed
-if ! python -c "import fastapi" 2>/dev/null; then
-    echo -e "${YELLOW}Installing dependencies...${NC}"
-    pip install --only-binary :all: -r requirements.txt
-fi
+# Note: Using system Python with pre-installed dependencies
+# (venv not needed due to system-managed environment)
 
 # Check for AWS credentials
 if [ -z "$AWS_ACCESS_KEY_ID" ] && [ -z "$AWS_PROFILE" ]; then
