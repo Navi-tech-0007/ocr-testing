@@ -1,5 +1,6 @@
 import base64
 import uuid
+import json
 import logging
 from io import BytesIO
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Body
@@ -15,6 +16,9 @@ from services.kill_box_refiner import KillBoxRefiner
 from services.ocr_debugger import OcrDebugger
 from services.full_result_extractor import FullResultExtractor, FullResultExtractionError
 from services.static_slot_geometry import StaticSlotGeometry
+from services.example_library import ExampleLibrary
+from services.streaming_extractor import StreamingExtractor, StreamingExtractionError
+from fastapi.responses import StreamingResponse
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +51,8 @@ finalizer = OcrFinalizer()
 ocr_debugger = OcrDebugger()
 full_result_extractor = FullResultExtractor()  # Full-screenshot Claude extraction
 static_geometry = StaticSlotGeometry()  # Static geometry for Step 2 and Step 2.5
+example_library = ExampleLibrary()  # Few-shot example library
+streaming_extractor = StreamingExtractor()  # Real-time streaming extraction with thinking
 
 # Global storage for original full-resolution screenshot and card boxes (used by debug mode)
 global_original_screenshot_array = None
@@ -1021,6 +1027,175 @@ async def claude_full_result(request_data: dict = None):
                 "error": f"Internal server error: {str(e)}"
             }
         )
+
+
+@app.post("/ocr/examples/save")
+async def save_example(request_data: dict = Body(...)):
+    """
+    Save a verified extraction example to the library.
+    
+    Used to build few-shot learning examples for improved accuracy.
+    
+    Args:
+        request_data: {
+            "screenshot_base64": "...",
+            "extraction_result": {...},
+            "tags": ["glare", "partial_card"],
+            "notes": "Example with glare effect on top 3 cards"
+        }
+    
+    Returns:
+        Example ID and confirmation
+    """
+    try:
+        screenshot_base64 = request_data.get("screenshot_base64")
+        extraction_result = request_data.get("extraction_result")
+        tags = request_data.get("tags", [])
+        notes = request_data.get("notes", "")
+        
+        if not screenshot_base64 or not extraction_result:
+            return JSONResponse(
+                status_code=422,
+                content={"error": "screenshot_base64 and extraction_result required"}
+            )
+        
+        example_id = example_library.save_example(
+            screenshot_base64=screenshot_base64,
+            extraction_result=extraction_result,
+            tags=tags,
+            notes=notes
+        )
+        
+        logger.info(f"Saved example {example_id} with tags: {tags}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "example_id": example_id,
+                "tags": tags,
+                "notes": notes
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error saving example: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/ocr/examples/list")
+async def list_examples():
+    """
+    List all saved examples with metadata.
+    
+    Returns:
+        List of example metadata
+    """
+    try:
+        examples = example_library.list_all_examples()
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "count": len(examples),
+                "examples": examples
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error listing examples: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/ocr/examples/{example_id}")
+async def get_example(example_id: str):
+    """
+    Retrieve a specific example.
+    
+    Args:
+        example_id: Example ID
+    
+    Returns:
+        Example with screenshot, result, and metadata
+    """
+    try:
+        example = example_library.get_example(example_id)
+        
+        if not example:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"Example {example_id} not found"}
+            )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "example": example
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error retrieving example: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.post("/ocr/claude-stream")
+async def stream_extraction(request_data: dict = Body(...)):
+    """
+    Stream Claude thinking and extraction in real-time.
+    
+    Returns Server-Sent Events (SSE) with:
+    - thinking: Claude's internal reasoning
+    - text: Streamed JSON response
+    - tokens: Token usage
+    - result: Final parsed result
+    - error: Any errors
+    
+    Args:
+        request_data: {"screenshot_base64": "..."}
+    
+    Returns:
+        StreamingResponse with SSE events
+    """
+    request_id = str(uuid.uuid4())
+    
+    async def event_generator():
+        try:
+            screenshot_base64 = request_data.get("screenshot_base64")
+            
+            if not screenshot_base64:
+                yield f"data: {json.dumps({'type': 'error', 'error': 'screenshot_base64 required'})}\n\n"
+                return
+            
+            logger.info(f"[{request_id}] Starting streaming extraction")
+            
+            async for event in streaming_extractor.stream_extraction(screenshot_base64):
+                # Format as SSE
+                yield f"data: {json.dumps(event)}\n\n"
+                
+                if event.get("type") == "done":
+                    logger.info(f"[{request_id}] Streaming extraction complete")
+                    break
+        
+        except Exception as e:
+            logger.exception(f"[{request_id}] Streaming error: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 @app.get("/health")

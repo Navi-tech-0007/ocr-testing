@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Streaming Extractor - Squad Space</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: #888;
+            font-size: 0.95rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #00d4ff;
+            border-radius: 2px;
+        }
+
+        .upload-zone {
+            border: 2px dashed rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .upload-zone:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-zone.has-image {
+            padding: 10px;
+        }
+
+        .upload-zone img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 6px;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            color: #888;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Thinking Panel */
+        .thinking-panel {
+            background: rgba(123, 44, 191, 0.1);
+            border: 1px solid rgba(123, 44, 191, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .thinking-panel.active {
+            display: block;
+        }
+
+        .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #b388ff;
+            font-weight: 600;
+        }
+
+        .thinking-content {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(179, 136, 255, 0.3);
+            border-top-color: #b388ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Stream Container */
+        .stream-container {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .stream-event {
+            margin-bottom: 12px;
+            padding: 8px;
+            border-left: 3px solid #666;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stream-event.thinking {
+            border-left-color: #b388ff;
+        }
+
+        .stream-event.text {
+            border-left-color: #00d4ff;
+        }
+
+        .stream-event.tokens {
+            border-left-color: #ffd700;
+        }
+
+        .stream-event.result {
+            border-left-color: #6bff8e;
+        }
+
+        .stream-event.error {
+            border-left-color: #ff6b6b;
+            color: #ff9999;
+        }
+
+        .stream-event.status {
+            border-left-color: #888;
+            color: #aaa;
+        }
+
+        .event-type {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 4px;
+        }
+
+        .event-content {
+            color: #ccc;
+            word-break: break-word;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Status */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .status-message.active {
+            display: block;
+        }
+
+        .status-message.error {
+            background: rgba(255, 59, 48, 0.15);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff6b6b;
+        }
+
+        .status-message.success {
+            background: rgba(52, 199, 89, 0.15);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: #6bff8e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Claude Streaming Extractor</h1>
+            <p>Real-time extraction with live thinking visualization</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Panel -->
+            <div class="left-panel">
+                <div class="panel">
+                    <div class="panel-title">Upload Screenshot</div>
+                    
+                    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Click to upload or drag & drop</div>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                    
+                    <button class="btn btn-primary" id="extractBtn" disabled>
+                        Stream Extraction
+                    </button>
+
+                    <div class="stats" id="stats" style="display: none;">
+                        <div class="stat-box">
+                            <div class="stat-value" id="statTokens">-</div>
+                            <div class="stat-label">Tokens</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statLatency">-</div>
+                            <div class="stat-label">Latency</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="right-panel">
+                <div class="panel">
+                    <div class="panel-title">Live Stream</div>
+                    <div class="stream-container" id="streamContainer">
+                        <div style="color: #666; text-align: center; padding: 40px 20px;">
+                            Upload a screenshot and click "Stream Extraction" to see live thinking...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://3.149.239.69:8000';
+        
+        let screenshotBase64 = null;
+        let startTime = null;
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const extractBtn = document.getElementById('extractBtn');
+        const streamContainer = document.getElementById('streamContainer');
+        const statusMessage = document.getElementById('statusMessage');
+        const stats = document.getElementById('stats');
+
+        // File upload
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = '#00d4ff';
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processFile(file);
+            }
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result.split(',')[1];
+                screenshotBase64 = base64;
+                
+                uploadZone.innerHTML = `<img src="${e.target.result}" alt="Screenshot">`;
+                uploadZone.classList.add('has-image');
+                extractBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Stream extraction
+        extractBtn.addEventListener('click', runStreaming);
+
+        async function runStreaming() {
+            if (!screenshotBase64) return;
+
+            extractBtn.disabled = true;
+            extractBtn.textContent = 'Streaming...';
+            streamContainer.innerHTML = '';
+            statusMessage.classList.remove('active');
+            stats.style.display = 'none';
+            startTime = Date.now();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ screenshot_base64: screenshotBase64 })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let tokenCount = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const event = JSON.parse(line.slice(6));
+                                renderEvent(event);
+                                
+                                if (event.type === 'tokens') {
+                                    tokenCount = event.total;
+                                }
+                            } catch (e) {
+                                console.error('Parse error:', e);
+                            }
+                        }
+                    }
+                }
+
+                const latency = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('statTokens').textContent = tokenCount || '-';
+                document.getElementById('statLatency').textContent = `${latency}s`;
+                stats.style.display = 'grid';
+
+                extractBtn.disabled = false;
+                extractBtn.textContent = 'Stream Extraction';
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                extractBtn.disabled = false;
+                extractBtn.textContent = 'Stream Extraction';
+            }
+        }
+
+        function renderEvent(event) {
+            const div = document.createElement('div');
+            div.className = `stream-event ${event.type}`;
+
+            const type = document.createElement('div');
+            type.className = 'event-type';
+            type.textContent = `[${event.type.toUpperCase()}]`;
+            div.appendChild(type);
+
+            const content = document.createElement('div');
+            content.className = 'event-content';
+
+            if (event.type === 'thinking') {
+                content.textContent = event.content;
+            } else if (event.type === 'text') {
+                content.textContent = event.content;
+            } else if (event.type === 'tokens') {
+                content.textContent = `Input: ${event.input}, Output: ${event.output}, Total: ${event.total}`;
+            } else if (event.type === 'refinements') {
+                div.style.borderLeftColor = '#ffa500';
+                div.style.background = 'rgba(255, 165, 0, 0.1)';
+                const fixes = event.fixes || [];
+                if (fixes.length > 0) {
+                    content.innerHTML = `<strong>Auto-fixes applied (${fixes.length}):</strong><br>` + 
+                        fixes.map(f => `• ${f.message}`).join('<br>');
+                } else {
+                    content.textContent = 'No refinements needed';
+                }
+            } else if (event.type === 'result') {
+                content.textContent = JSON.stringify(event.data, null, 2);
+            } else if (event.type === 'error') {
+                content.textContent = event.error;
+            } else {
+                content.textContent = event.message || JSON.stringify(event);
+            }
+
+            div.appendChild(content);
+            streamContainer.appendChild(div);
+            streamContainer.scrollTop = streamContainer.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            if (!message) {
+                statusMessage.classList.remove('active');
+                return;
+            }
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message active ${type}`;
+        }
+    </script>
+</body>
+</html>

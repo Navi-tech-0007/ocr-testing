@@ -27,8 +27,8 @@ class FullResultExtractor:
     def __init__(self):
         """Initialize the extractor with Claude client."""
         self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-2")
-        self.model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-        logger.info("FullResultExtractor initialized")
+        self.model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+        logger.info(f"FullResultExtractor initialized with model: {self.model_id}")
         self._load_prompts()
     
     def _load_prompts(self):
@@ -166,8 +166,8 @@ class FullResultExtractor:
             if not isinstance(players, list):
                 raise FullResultExtractionError(f"Team {i}: 'players' must be a list")
             
-            if len(players) != 4:
-                raise FullResultExtractionError(f"Team {i}: expected 4 players, got {len(players)}")
+            if len(players) < 1 or len(players) > 4:
+                raise FullResultExtractionError(f"Team {i}: expected 1-4 players (partial cards allowed), got {len(players)}")
             
             for j, player in enumerate(players):
                 if not isinstance(player, dict):
@@ -191,6 +191,49 @@ class FullResultExtractor:
                 if player["kills"] is not None:
                     if not isinstance(player["kills"], int) or player["kills"] < 0 or player["kills"] > 20:
                         raise FullResultExtractionError(f"Team {i} Player {j}: invalid kills {player['kills']}")
+    
+    def _refine_response(self, data: dict) -> tuple:
+        """
+        Refine the extraction response by fixing inconsistencies.
+        
+        Returns:
+            tuple: (refined_data, list_of_refinements)
+        """
+        refinements = []
+        
+        for team in data.get("teams", []):
+            card_idx = team.get("card_index", "?")
+            team_name = team.get("team_name", "Unknown")
+            
+            # Calculate sum of player kills
+            players = team.get("players", [])
+            player_kills_sum = 0
+            valid_kills = True
+            
+            for player in players:
+                kills = player.get("kills")
+                if kills is not None and isinstance(kills, int):
+                    player_kills_sum += kills
+                else:
+                    valid_kills = False
+            
+            # Check if total_kills matches sum
+            total_kills = team.get("total_kills")
+            
+            if valid_kills and total_kills is not None:
+                if total_kills != player_kills_sum:
+                    refinements.append({
+                        "card": card_idx,
+                        "team": team_name,
+                        "issue": "total_kills_mismatch",
+                        "original": total_kills,
+                        "corrected": player_kills_sum,
+                        "message": f"Card {card_idx} ({team_name}): total_kills {total_kills} → {player_kills_sum}"
+                    })
+                    # Fix the total to match sum (individual kills are more reliable)
+                    team["total_kills"] = player_kills_sum
+        
+        return data, refinements
     
     def extract_full_result(self, screenshot_base64: str) -> dict:
         """
@@ -235,9 +278,8 @@ class FullResultExtractor:
                     }
                 ],
                 inferenceConfig={
-                    "maxTokens": 4000,
+                    "maxTokens": 12000,
                     "temperature": 0,
-                    "topP": 1,
                 }
             )
             latency = time.time() - start_time
@@ -288,11 +330,17 @@ class FullResultExtractor:
                 logger.error(f"Schema validation failed: {str(e)}")
                 raise
             
-            logger.info(f"Full result extraction successful. Teams: {len(data['teams'])}")
+            # Refine response - fix totals and report issues
+            refined_data, refinements = self._refine_response(data)
+            if refinements:
+                logger.info(f"Applied {len(refinements)} refinements: {[r['message'] for r in refinements]}")
+            
+            logger.info(f"Full result extraction successful. Teams: {len(refined_data['teams'])}")
             
             return {
                 "success": True,
-                "data": data,
+                "data": refined_data,
+                "refinements": refinements,
                 "latency_seconds": latency,
                 "tokens": {
                     "input": input_tokens,

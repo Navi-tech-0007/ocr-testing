@@ -22,9 +22,9 @@ class TeamCardDetector:
     def __init__(self):
         """Initialize the detector with Bedrock client and prompts."""
         self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-2")
-        self.model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+        self.model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         self.enabled = os.getenv("OCR_TEAM_CARD_DETECTION_ENABLED", "true").lower() == "true"
-        logger.info(f"TeamCardDetector initialized. Enabled: {self.enabled}")
+        logger.info(f"TeamCardDetector initialized with model: {self.model_id}. Enabled: {self.enabled}")
         self._load_prompts()
     
     def _load_prompts(self):
@@ -83,7 +83,7 @@ class TeamCardDetector:
         reasoning_config = {
             "thinking": {
                 "type": "enabled",
-                "budget_tokens": 5000
+                "budget_tokens": 10000
             }
         }
         
@@ -115,9 +115,8 @@ class TeamCardDetector:
             ],
             additionalModelRequestFields=reasoning_config,
             inferenceConfig={
-                "maxTokens": 6000,
+                "maxTokens": 10000,
                 "temperature": 1,
-                "topP": 1,
             }
         )
         

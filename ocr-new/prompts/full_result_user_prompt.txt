@@ -2,12 +2,17 @@ Extract the ENTIRE match result from this Free Fire scoreboard screenshot.
 
 STRICT EXTRACTION RULES:
 
-1. **CARD ISOLATION (CRITICAL)**
-Each team card is a SEPARATE rectangular box. Process each card INDEPENDENTLY:
-- NEVER mix players between cards
-- Each card contains EXACTLY 4 players in a 2×2 grid
-- Players in one card belong ONLY to that card
-- If you see a player row, identify which card's bounding box contains it
+1. **CARD ISOLATION (CRITICAL - MOST IMPORTANT RULE)**
+Each team card is a SEPARATE rectangular box with CLEAR boundaries. Process each card INDEPENDENTLY:
+- NEVER EVER mix players between cards
+- Each FULL card contains 4 players in a 2×2 grid
+- Look at the VISUAL BOUNDARIES of each card rectangle
+- A card's boundary is the dark/black rectangular border around it
+- If a card is CUT OFF at top/bottom, it may show only 1-3 players
+- Players INSIDE a card's boundary belong ONLY to that card
+- Players OUTSIDE a card's boundary belong to a DIFFERENT card
+- When a card at position 7 is cut off showing 2 players, do NOT take players from position 8
+- VERIFY: Does this player's row physically sit inside THIS card's rectangle?
 
 2. **TEAM CARD STRUCTURE**
 Each squad card contains:
@@ -58,11 +63,29 @@ The scoreboard has TWO columns:
 If 10 or fewer total cards, all are fully visible.
 If 12 cards, some may be partially cut off at edges.
 
-**PARTIAL CARD RULES:**
-- If a card is cut off and only 2 players are visible, extract ONLY those 2 players
-- Set the other 2 player slots to: `{"slot_index": X, "player_name": "", "kills": null}`
+**PARTIAL CARD RULES (CRITICAL - READ CAREFULLY):**
+- If a card is cut off at TOP or BOTTOM, extract ONLY the players INSIDE that card's boundary
+- DO NOT assume or guess missing player names or kills
+- DO NOT fill in empty slots with data from OTHER cards
+- DO NOT "borrow" players from adjacent cards to fill a partial card
+- Only include players where you can see BOTH the full name AND full kill count
+- If only 1-3 players are visible INSIDE the card boundary, include only those 1-3
+- If a player name or kill count is partially cut off, DO NOT include that player
 - The placement number on cards is almost ALWAYS visible (99%)
 - Keep each card ISOLATED—never mix players from different cards
+
+**EXAMPLE OF CORRECT PARTIAL CARD HANDLING:**
+If card at position 7 (right column, top) is cut off at bottom:
+- You see: 2 players inside card 7's boundary
+- Card 8 below has 4 players in its own boundary
+- CORRECT: Card 7 returns 2 players only
+- WRONG: Card 7 returns 4 players (taking 2 from card 8)
+
+**HOW TO IDENTIFY CARD BOUNDARIES:**
+- Each card has a dark rectangular border
+- Cards are stacked vertically in two columns
+- The space BETWEEN cards is the boundary separator
+- Look for the horizontal gap between cards
 
 8. **OUTPUT FORMAT (STRICT JSON ONLY)**
 
@@ -101,24 +124,25 @@ If 12 cards, some may be partially cut off at edges.
 }
 
 9. **CRITICAL RULES**
-- NEVER mix players between cards—each card is ISOLATED
+- NEVER mix players between cards—each card is ISOLATED in its own rectangle
 - Do NOT guess missing names—if unclear, set to empty string ""
 - Do NOT output text outside JSON
-- Do NOT hallucinate players—extract exactly 4 per card
+- Do NOT hallucinate players—extract only VISIBLE players (1-4) per card
 - Do NOT reorder teams—use card_index order
 - Do NOT invent kill numbers—only extract visible orange digits
 - If any kill digit is unclear, set "kills": null
 - If team name is unclear, set "team_name": ""
-- VERIFY: sum of 4 player kills MUST EQUAL total_kills for each team
+- VERIFY: total_kills should equal SUM of all player kills in that card
+- VERIFY: Each player row must be INSIDE the card's visual boundary
 
 10. **VALIDATION**
 - Number of teams = number of VISIBLE cards (5-12)
-- Exactly 4 players per team (2×2 grid)
+- 1-4 players per team (partial cards may have fewer than 4)
 - Placements are numbers (1-12 range)
 - Player kills: numbers (0-20) or null
 - Team total_kills: numbers (0-50) or null
 - All names are strings
-- VERIFY each player belongs to the correct card bounding box
+- VERIFY: Player belongs to card if their row is INSIDE that card's rectangle
 - VERIFY: player1.kills + player2.kills + player3.kills + player4.kills == total_kills
 
 Extract now. Return ONLY the JSON object, no other text.
