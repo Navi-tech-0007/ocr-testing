@@ -407,9 +407,17 @@
                     </div>
                     <input type="file" id="fileInput" accept="image/*">
                     
-                    <button class="btn btn-primary" id="extractBtn" disabled>
-                        Extract with Claude
-                    </button>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" id="extractBtn" disabled style="flex: 1; min-width: 140px;">
+                            Sonnet 4.5
+                        </button>
+                        <button class="btn btn-primary" id="extractHaikuBtn" disabled style="flex: 1; min-width: 140px; background: #ff9800;">
+                            Haiku 4.5
+                        </button>
+                        <button class="btn btn-primary" id="extractTwopassBtn" disabled style="flex: 1; min-width: 140px; background: #9c27b0;">
+                            Two-Pass
+                        </button>
+                    </div>
 
                     <div class="stats" id="stats" style="display: none;">
                         <div class="stat-box">
@@ -417,8 +425,16 @@
                             <div class="stat-label">Teams</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-value" id="statTokens">-</div>
-                            <div class="stat-label">Tokens</div>
+                            <div class="stat-value" id="statInputTokens">-</div>
+                            <div class="stat-label">Input Tokens</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statOutputTokens">-</div>
+                            <div class="stat-label">Output Tokens</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statTotalTokens">-</div>
+                            <div class="stat-label">Total Tokens</div>
                         </div>
                         <div class="stat-box">
                             <div class="stat-value" id="statLatency">-</div>
@@ -473,7 +489,7 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'http://3.149.239.69:8000';
+        const API_BASE_URL = 'http://3.144.43.176:8000';
         
         let screenshotBase64 = null;
         let extractionResult = null;
@@ -528,18 +544,22 @@
                 uploadZone.innerHTML = `<img src="${e.target.result}" alt="Screenshot">`;
                 uploadZone.classList.add('has-image');
                 extractBtn.disabled = false;
+                document.getElementById('extractHaikuBtn').disabled = false;
+                document.getElementById('extractTwopassBtn').disabled = false;
             };
             reader.readAsDataURL(file);
         }
 
-        // Extract
-        extractBtn.addEventListener('click', runExtraction);
+        // Extract handlers
+        extractBtn.addEventListener('click', () => runExtraction('/ocr/claude-full-result', extractBtn, 'Sonnet 4.5'));
+        document.getElementById('extractHaikuBtn').addEventListener('click', () => runExtraction('/ocr/haiku-full-result', document.getElementById('extractHaikuBtn'), 'Haiku 4.5'));
+        document.getElementById('extractTwopassBtn').addEventListener('click', () => runExtraction('/ocr/twopass-full-result', document.getElementById('extractTwopassBtn'), 'Two-Pass'));
 
-        async function runExtraction() {
+        async function runExtraction(endpoint, button, originalText) {
             if (!screenshotBase64) return;
 
-            extractBtn.disabled = true;
-            extractBtn.textContent = 'Extracting...';
+            button.disabled = true;
+            button.textContent = 'Extracting...';
             
             // Show thinking panel
             thinkingPanel.classList.add('active');
@@ -549,7 +569,7 @@
             showStatus('', '');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ screenshot_base64: screenshotBase64 })
@@ -561,7 +581,7 @@
                     extractionResult = data;
                     renderResults(data.data);
                     updateStats(data);
-                    showStatus('Extraction successful!', 'success');
+                    showStatus(`Extraction successful! (${data.model || 'Claude'})`, 'success');
                     
                     // Update thinking
                     thinkingContent.textContent = 'Analysis complete. Results ready.';
@@ -576,8 +596,8 @@
                 showStatus(`Error: ${error.message}`, 'error');
                 thinkingContent.textContent = `Error: ${error.message}`;
             } finally {
-                extractBtn.disabled = false;
-                extractBtn.textContent = 'Extract with Claude';
+                button.disabled = false;
+                button.textContent = originalText;
             }
         }
 
@@ -625,7 +645,9 @@
         function updateStats(data) {
             stats.style.display = 'grid';
             document.getElementById('statTeams').textContent = data.data?.teams?.length || 0;
-            document.getElementById('statTokens').textContent = data.tokens?.total || '—';
+            document.getElementById('statInputTokens').textContent = data.tokens?.input_tokens || '—';
+            document.getElementById('statOutputTokens').textContent = data.tokens?.output_tokens || '—';
+            document.getElementById('statTotalTokens').textContent = data.tokens?.total_tokens || '—';
             document.getElementById('statLatency').textContent = data.latency_seconds 
                 ? `${data.latency_seconds.toFixed(1)}s` 
                 : '—';

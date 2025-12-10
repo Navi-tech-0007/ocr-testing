@@ -1,94 +1,62 @@
 """
-Full-screenshot Claude Vision extraction service.
-
-Extracts entire match result (all teams, players, kills) from a single screenshot.
-Used for organizer verification and final result validation.
+Haiku-based full result extractor for cost/speed comparison.
+Uses Claude 3.5 Haiku instead of Sonnet 4.5.
 """
 
 import json
-import base64
 import logging
 import time
-from pathlib import Path
-from typing import Optional
+import base64
+import os
 import boto3
 
 logger = logging.getLogger(__name__)
 
 
-class FullResultExtractionError(Exception):
-    """Custom exception for full result extraction errors."""
+class HaikuExtractionError(Exception):
+    """Haiku extraction error."""
     pass
 
 
-class FullResultExtractor:
-    """Service for extracting complete match results using Claude Vision."""
+class HaikuExtractor:
+    """Extract full match result using Claude Haiku 4.5 with thinking."""
     
     def __init__(self):
-        """Initialize the extractor with Claude client."""
         self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-2")
-        self.model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-        logger.info(f"FullResultExtractor initialized with model: {self.model_id}")
-        self._load_prompts()
-    
-    def _load_prompts(self):
-        """Load Claude prompts from files."""
-        prompts_dir = Path(__file__).parent.parent / "prompts"
+        self.model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"  # US inference profile
         
-        with open(prompts_dir / "full_result_system_prompt.txt", "r") as f:
+        # Load prompts
+        prompt_dir = os.path.join(os.path.dirname(__file__), "..", "prompts")
+        
+        with open(os.path.join(prompt_dir, "system_prompt.txt"), "r") as f:
             self.system_prompt = f.read().strip()
         
-        with open(prompts_dir / "full_result_user_prompt.txt", "r") as f:
+        with open(os.path.join(prompt_dir, "full_result_user_prompt.txt"), "r") as f:
             self.user_prompt = f.read().strip()
+        
+        logger.info(f"HaikuExtractor initialized with model: {self.model_id}")
     
     def _validate_screenshot(self, screenshot_base64: str) -> None:
-        """
-        Validate screenshot base64 format.
-        
-        Args:
-            screenshot_base64: Base64-encoded screenshot
-            
-        Raises:
-            FullResultExtractionError: If invalid
-        """
+        """Validate screenshot input."""
         if not screenshot_base64:
-            raise FullResultExtractionError("Screenshot base64 is empty")
+            raise HaikuExtractionError("Screenshot base64 is empty")
         
-        if not isinstance(screenshot_base64, str):
-            raise FullResultExtractionError("Screenshot must be base64 string")
+        if len(screenshot_base64) < 1000:
+            raise HaikuExtractionError("Screenshot too small")
         
-        # Try to decode to verify it's valid base64
-        try:
-            decoded = base64.b64decode(screenshot_base64)
-            if len(decoded) < 1000:  # Minimum reasonable screenshot size
-                raise FullResultExtractionError("Screenshot too small (< 1KB)")
-        except Exception as e:
-            raise FullResultExtractionError(f"Invalid base64: {str(e)}")
+        if len(screenshot_base64) > 5000000:
+            raise HaikuExtractionError("Screenshot too large (>5MB)")
     
     def _parse_json_response(self, response_text: str) -> dict:
-        """
-        Parse JSON response from Claude.
-        
-        Handles cases where Claude wraps JSON in markdown or extra text.
-        
-        Args:
-            response_text: Raw response text from Claude
-            
-        Returns:
-            Parsed JSON dict
-            
-        Raises:
-            FullResultExtractionError: If JSON is invalid
-        """
+        """Parse JSON from Claude response."""
         response_text = response_text.strip()
         
-        # Try direct JSON parse first
         try:
             return json.loads(response_text)
         except json.JSONDecodeError:
             pass
         
-        # Try to extract JSON from markdown code blocks
+        # Try markdown code blocks
         if "```json" in response_text:
             start = response_text.find("```json") + 7
             end = response_text.find("```", start)
@@ -108,89 +76,62 @@ class FullResultExtractor:
             except json.JSONDecodeError:
                 pass
         
-        raise FullResultExtractionError(f"Could not parse JSON from response: {response_text[:200]}")
+        raise HaikuExtractionError(f"Could not parse JSON from response: {response_text[:200]}")
     
     def _validate_result_schema(self, data: dict) -> None:
-        """
-        Validate the extracted result schema.
-        
-        Args:
-            data: Parsed JSON data
-            
-        Raises:
-            FullResultExtractionError: If schema is invalid
-        """
+        """Validate extraction result schema."""
         if not isinstance(data, dict):
-            raise FullResultExtractionError("Response must be a JSON object")
+            raise HaikuExtractionError("Response must be a JSON object")
         
         if "teams" not in data:
-            raise FullResultExtractionError("Response must contain 'teams' key")
+            raise HaikuExtractionError("Response must contain 'teams' key")
         
         teams = data.get("teams")
         if not isinstance(teams, list):
-            raise FullResultExtractionError("'teams' must be a list")
+            raise HaikuExtractionError("'teams' must be a list")
         
         if len(teams) < 1 or len(teams) > 12:
-            raise FullResultExtractionError(f"Expected 1-12 teams, got {len(teams)}")
+            raise HaikuExtractionError(f"Expected 1-12 teams, got {len(teams)}")
         
-        # Validate each team
+        # Basic validation of team structure
         for i, team in enumerate(teams):
             if not isinstance(team, dict):
-                raise FullResultExtractionError(f"Team {i} is not a dict")
+                raise HaikuExtractionError(f"Team {i} is not a dict")
             
-            # Check required fields
             required_fields = ["card_index", "placement", "team_name", "total_kills", "players"]
             for field in required_fields:
                 if field not in team:
-                    raise FullResultExtractionError(f"Team {i} missing '{field}'")
+                    raise HaikuExtractionError(f"Team {i} missing '{field}'")
             
-            # Validate card_index
-            if not isinstance(team["card_index"], int) or team["card_index"] < 1 or team["card_index"] > 12:
-                raise FullResultExtractionError(f"Team {i}: invalid card_index {team['card_index']}")
-            
-            # Validate placement
-            if not isinstance(team["placement"], int) or team["placement"] < 1 or team["placement"] > 12:
-                raise FullResultExtractionError(f"Team {i}: invalid placement {team['placement']}")
-            
-            # Validate team_name
-            if not isinstance(team["team_name"], str):
-                raise FullResultExtractionError(f"Team {i}: team_name must be string")
-            
-            # Validate total_kills
-            if team["total_kills"] is not None:
-                if not isinstance(team["total_kills"], int) or team["total_kills"] < 0:
-                    raise FullResultExtractionError(f"Team {i}: invalid total_kills {team['total_kills']}")
-            
-            # Validate players
             players = team.get("players")
             if not isinstance(players, list):
-                raise FullResultExtractionError(f"Team {i}: 'players' must be a list")
+                raise HaikuExtractionError(f"Team {i}: 'players' must be a list")
             
             if len(players) < 1 or len(players) > 4:
-                raise FullResultExtractionError(f"Team {i}: expected 1-4 players (partial cards allowed), got {len(players)}")
+                raise HaikuExtractionError(f"Team {i}: expected 1-4 players, got {len(players)}")
             
+            # Validate each player
             for j, player in enumerate(players):
                 if not isinstance(player, dict):
-                    raise FullResultExtractionError(f"Team {i} Player {j}: not a dict")
+                    raise HaikuExtractionError(f"Team {i} Player {j} is not a dict")
                 
-                # Check required fields
-                player_fields = ["slot_index", "player_name", "kills"]
-                for field in player_fields:
+                required_player_fields = ["slot_index", "player_name", "kills"]
+                for field in required_player_fields:
                     if field not in player:
-                        raise FullResultExtractionError(f"Team {i} Player {j}: missing '{field}'")
+                        raise HaikuExtractionError(f"Team {i} Player {j} missing '{field}'")
                 
                 # Validate slot_index
                 if not isinstance(player["slot_index"], int) or player["slot_index"] < 1 or player["slot_index"] > 4:
-                    raise FullResultExtractionError(f"Team {i} Player {j}: invalid slot_index {player['slot_index']}")
+                    raise HaikuExtractionError(f"Team {i} Player {j}: invalid slot_index {player['slot_index']}")
                 
                 # Validate player_name
                 if not isinstance(player["player_name"], str):
-                    raise FullResultExtractionError(f"Team {i} Player {j}: player_name must be string")
+                    raise HaikuExtractionError(f"Team {i} Player {j}: player_name must be string")
                 
                 # Validate kills
                 if player["kills"] is not None:
                     if not isinstance(player["kills"], int) or player["kills"] < 0 or player["kills"] > 20:
-                        raise FullResultExtractionError(f"Team {i} Player {j}: invalid kills {player['kills']}")
+                        raise HaikuExtractionError(f"Team {i} Player {j}: invalid kills {player['kills']}")
     
     def _refine_response(self, data: dict) -> tuple:
         """
@@ -237,7 +178,7 @@ class FullResultExtractor:
     
     def extract_full_result(self, screenshot_base64: str) -> dict:
         """
-        Extract complete match result from full screenshot.
+        Extract complete match result from full screenshot using Haiku.
         
         Args:
             screenshot_base64: Base64-encoded full screenshot
@@ -246,15 +187,15 @@ class FullResultExtractor:
             Dict with teams, players, kills, placements
             
         Raises:
-            FullResultExtractionError: If extraction fails
+            HaikuExtractionError: If extraction fails
         """
-        logger.info(f"Incoming full result extraction request. Screenshot size: {len(screenshot_base64)} chars")
+        logger.info(f"Incoming Haiku extraction request. Screenshot size: {len(screenshot_base64)} chars")
         
         # Validate input
         self._validate_screenshot(screenshot_base64)
         
         try:
-            # Call Claude Vision with thinking enabled
+            # Call Claude Haiku 4.5 with thinking enabled
             start_time = time.time()
             response = self.bedrock_client.converse(
                 modelId=self.model_id,
@@ -280,11 +221,11 @@ class FullResultExtractor:
                 additionalModelRequestFields={
                     "thinking": {
                         "type": "enabled",
-                        "budget_tokens": 10000
+                        "budget_tokens": 10000  # Haiku uses less thinking tokens
                     }
                 },
                 inferenceConfig={
-                    "maxTokens": 12000,
+                    "maxTokens": 20000,  # Haiku needs less tokens
                     "temperature": 1,  # Required for thinking
                 }
             )
@@ -297,17 +238,17 @@ class FullResultExtractor:
             total_tokens = input_tokens + output_tokens
             
             logger.info(
-                f"Claude Vision call completed. Latency: {latency:.2f}s | "
+                f"Haiku call completed. Latency: {latency:.2f}s | "
                 f"Tokens: {input_tokens} in, {output_tokens} out, {total_tokens} total"
             )
             
             # Extract response
             if "output" not in response or "message" not in response["output"]:
-                raise FullResultExtractionError("Invalid Bedrock response structure")
+                raise HaikuExtractionError("Invalid Bedrock response structure")
             
             content_blocks = response["output"]["message"]["content"]
             if not isinstance(content_blocks, list) or len(content_blocks) == 0:
-                raise FullResultExtractionError("No content in Claude response")
+                raise HaikuExtractionError("No content in Claude response")
             
             response_text = None
             for block in content_blocks:
@@ -316,7 +257,7 @@ class FullResultExtractor:
                     break
             
             if not response_text:
-                raise FullResultExtractionError("No text content in Claude response")
+                raise HaikuExtractionError("No text content in Claude response")
             
             logger.debug(f"Claude response: {response_text[:500]}...")
             
@@ -324,7 +265,7 @@ class FullResultExtractor:
             try:
                 data = self._parse_json_response(response_text)
                 logger.debug("JSON parsed successfully")
-            except FullResultExtractionError as e:
+            except HaikuExtractionError as e:
                 logger.error(f"JSON parse failed: {str(e)}")
                 raise
             
@@ -332,7 +273,7 @@ class FullResultExtractor:
             try:
                 self._validate_result_schema(data)
                 logger.info("Result schema validated successfully")
-            except FullResultExtractionError as e:
+            except HaikuExtractionError as e:
                 logger.error(f"Schema validation failed: {str(e)}")
                 raise
             
@@ -341,12 +282,13 @@ class FullResultExtractor:
             if refinements:
                 logger.info(f"Applied {len(refinements)} refinements: {[r['message'] for r in refinements]}")
             
-            logger.info(f"Full result extraction successful. Teams: {len(refined_data['teams'])}")
+            logger.info(f"Haiku extraction successful. Teams: {len(refined_data['teams'])}")
             
             return {
                 "success": True,
                 "data": refined_data,
                 "refinements": refinements,
+                "model": "haiku-3.5",
                 "latency_seconds": latency,
                 "tokens": {
                     "input_tokens": input_tokens,
@@ -355,9 +297,9 @@ class FullResultExtractor:
                 }
             }
         
-        except FullResultExtractionError as e:
+        except HaikuExtractionError as e:
             logger.error(f"Extraction error: {str(e)}")
             raise
         except Exception as e:
             logger.exception(f"Unexpected error: {str(e)}")
-            raise FullResultExtractionError(f"Unexpected error: {str(e)}")
+            raise HaikuExtractionError(f"Unexpected error: {str(e)}")

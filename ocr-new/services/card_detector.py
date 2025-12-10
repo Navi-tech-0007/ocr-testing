@@ -259,7 +259,60 @@ class TeamCardDetector:
                 }
             })
         
+        # Check for split cards (same card detected as multiple bounding boxes)
+        # This happens when Claude splits a single card horizontally
+        self._detect_split_cards(validated_cards)
+        
         return validated_cards
+    
+    def _detect_split_cards(self, cards: list[dict]) -> None:
+        """
+        Detect if a single card was split into multiple bounding boxes.
+        
+        A split card occurs when:
+        - Two cards have very similar Y ranges (same vertical position)
+        - They are adjacent horizontally (x2 of one ≈ x1 of next)
+        - They should be merged into one card
+        
+        Raises:
+            CardDetectionError: If split cards are detected
+        """
+        if len(cards) < 2:
+            return
+        
+        # Sort by Y position to find cards at same vertical level
+        sorted_cards = sorted(cards, key=lambda c: c["bounds"]["y1"])
+        
+        for i in range(len(sorted_cards) - 1):
+            card1 = sorted_cards[i]
+            card2 = sorted_cards[i + 1]
+            
+            b1 = card1["bounds"]
+            b2 = card2["bounds"]
+            
+            # Check if cards are at similar Y level (within 10% of card height)
+            card1_height = b1["y2"] - b1["y1"]
+            card2_height = b2["y2"] - b2["y1"]
+            
+            y_overlap = abs(b1["y1"] - b2["y1"]) < max(card1_height, card2_height) * 0.1
+            
+            # Check if cards are horizontally adjacent (gap < 5% of image width)
+            # This would indicate they're split parts of the same card
+            if y_overlap and b1["x2"] > 0 and b2["x1"] > 0:
+                gap = b2["x1"] - b1["x2"]
+                # If gap is small or negative (overlapping), they might be split
+                if gap < 50:  # Arbitrary threshold: less than 50 pixels gap
+                    logger.warning(
+                        f"Possible split card detected: Card {card1['card_index']} "
+                        f"(x1={b1['x1']}, x2={b1['x2']}) and Card {card2['card_index']} "
+                        f"(x1={b2['x1']}, x2={b2['x2']}) at similar Y level. "
+                        f"Gap: {gap}px. These may be parts of the same card."
+                    )
+                    raise CardDetectionError(
+                        f"Detected possible split card: cards {card1['card_index']} and "
+                        f"{card2['card_index']} appear to be horizontal splits of the same card. "
+                        f"Each card must be ONE contiguous rectangle."
+                    )
     
     def detect_cards(self, image_bytes: bytes) -> dict:
         """
@@ -315,8 +368,30 @@ class TeamCardDetector:
                 raise CardDetectionError(f"Failed to parse JSON after retry: {str(e)}")
         
         # Validate schema
-        cards = self._validate_cards_schema(data, image_width, image_height)
-        logger.info(f"Schema validated. Cards found: {len(cards)}")
+        try:
+            cards = self._validate_cards_schema(data, image_width, image_height)
+            logger.info(f"Schema validated. Cards found: {len(cards)}")
+        except CardDetectionError as e:
+            # If split cards detected, retry with retry prompt
+            if "split card" in str(e).lower():
+                logger.warning(f"Split card detected: {str(e)}. Retrying with split card warning...")
+                start_time = time.time()
+                retry_response_text, retry_token_usage = self._call_claude_vision(image_base64, self.retry_prompt, is_retry=True)
+                latency = time.time() - start_time
+                logger.info(f"Bedrock Claude retry call completed. Latency: {latency:.2f}s")
+                # Accumulate tokens from retry
+                token_usage["input"] += retry_token_usage["input"]
+                token_usage["output"] += retry_token_usage["output"]
+                token_usage["total"] += retry_token_usage["total"]
+                try:
+                    data = self._parse_json_response(retry_response_text)
+                    cards = self._validate_cards_schema(data, image_width, image_height)
+                    logger.info("Split card issue resolved on retry")
+                except CardDetectionError as retry_error:
+                    logger.error(f"Split card issue persists after retry: {str(retry_error)}")
+                    raise retry_error
+            else:
+                raise
         
         # Sort by card_index
         cards.sort(key=lambda c: c["card_index"])

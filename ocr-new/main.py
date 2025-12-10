@@ -15,6 +15,8 @@ from services.image_cropper import ImageCropper
 from services.kill_box_refiner import KillBoxRefiner
 from services.ocr_debugger import OcrDebugger
 from services.full_result_extractor import FullResultExtractor, FullResultExtractionError
+from services.haiku_extractor import HaikuExtractor, HaikuExtractionError
+from services.twopass_extractor import TwoPassExtractor, TwoPassExtractionError
 from services.static_slot_geometry import StaticSlotGeometry
 from services.example_library import ExampleLibrary
 from services.streaming_extractor import StreamingExtractor, StreamingExtractionError
@@ -49,7 +51,9 @@ kill_extractor = KillExtractor(use_paddle_debug=False)  # Production: Tesseract 
 name_extractor = NameExtractor()
 finalizer = OcrFinalizer()
 ocr_debugger = OcrDebugger()
-full_result_extractor = FullResultExtractor()  # Full-screenshot Claude extraction
+full_result_extractor = FullResultExtractor()  # Full-screenshot Claude extraction (Sonnet 4.5)
+haiku_extractor = HaikuExtractor()  # Full-screenshot extraction with Haiku (cost/speed comparison)
+twopass_extractor = TwoPassExtractor()  # Two-pass extraction for better card isolation
 static_geometry = StaticSlotGeometry()  # Static geometry for Step 2 and Step 2.5
 example_library = ExampleLibrary()  # Few-shot example library
 streaming_extractor = StreamingExtractor()  # Real-time streaming extraction with thinking
@@ -1008,6 +1012,153 @@ async def claude_full_result(request_data: dict = None):
             }
         )
     except FullResultExtractionError as e:
+        logger.error(f"[{request_id}] Extraction error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except Exception as e:
+        logger.exception(f"[{request_id}] Unexpected error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": f"Internal server error: {str(e)}"
+            }
+        )
+
+
+@app.post("/ocr/haiku-full-result")
+async def haiku_full_result(request_data: dict = None):
+    """
+    Extract complete match result from full screenshot using Claude Haiku 4.5.
+    
+    This is a cost/speed comparison endpoint. Haiku 4.5 with thinking is:
+    - ~2-3x faster than Sonnet 4.5
+    - ~5-8x cheaper than Sonnet 4.5
+    - Good accuracy with thinking enabled
+    - Ideal for high-volume processing
+    
+    Args:
+        request_data: Dict with screenshot_base64
+        
+    Returns:
+        JSON response with teams, players, kills, placements + model info
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        screenshot_base64 = request_data.get("screenshot_base64")
+        
+        if not screenshot_base64:
+            logger.warning(f"[{request_id}] No screenshot provided")
+            raise ValueError("screenshot_base64 required")
+        
+        logger.info(f"[{request_id}] Processing Haiku extraction")
+        
+        # Extract full result using Haiku
+        result = haiku_extractor.extract_full_result(screenshot_base64)
+        
+        logger.info(f"[{request_id}] Haiku extraction complete")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "request_id": request_id,
+                "success": True,
+                "model": result.get("model", "haiku-3.5"),
+                "data": result["data"],
+                "refinements": result.get("refinements", []),
+                "latency_seconds": result["latency_seconds"],
+                "tokens": result.get("tokens", {})
+            }
+        )
+    
+    except ValueError as e:
+        logger.error(f"[{request_id}] Validation error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except HaikuExtractionError as e:
+        logger.error(f"[{request_id}] Extraction error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except Exception as e:
+        logger.exception(f"[{request_id}] Unexpected error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": f"Internal server error: {str(e)}"
+            }
+        )
+
+
+@app.post("/ocr/twopass-full-result")
+async def twopass_full_result(request_data: dict = None):
+    """
+    Extract complete match result using two-pass approach.
+    
+    Pass 1: Detect card structure (placement numbers + visible player counts)
+    Pass 2: Extract full data using the structure constraints
+    
+    This approach provides better card isolation for partial/cut-off cards.
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        screenshot_base64 = request_data.get("screenshot_base64")
+        
+        if not screenshot_base64:
+            logger.warning(f"[{request_id}] No screenshot provided")
+            raise ValueError("screenshot_base64 required")
+        
+        logger.info(f"[{request_id}] Processing two-pass extraction")
+        
+        result = twopass_extractor.extract_full_result(screenshot_base64)
+        
+        logger.info(f"[{request_id}] Two-pass extraction complete")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "request_id": request_id,
+                "success": True,
+                "model": result.get("model", "sonnet-4.5-twopass"),
+                "pass1_structure": result.get("pass1_structure", {}),
+                "data": result["data"],
+                "refinements": result.get("refinements", []),
+                "latency_seconds": result["latency_seconds"],
+                "tokens": result.get("tokens", {})
+            }
+        )
+    
+    except ValueError as e:
+        logger.error(f"[{request_id}] Validation error: {str(e)}")
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "success": False,
+                "error": str(e)
+            }
+        )
+    except TwoPassExtractionError as e:
         logger.error(f"[{request_id}] Extraction error: {str(e)}")
         return JSONResponse(
             status_code=422,

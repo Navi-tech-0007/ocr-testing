@@ -1,4 +1,20 @@
-Your previous output was not valid JSON. 
-Return ONLY the JSON object in the format specified earlier, with no comments, no text, and no markdown. 
-Do not change the structure. 
-JSON only.
+Your previous output was not valid JSON or had structural issues.
+
+CRITICAL REMINDERS FOR RETRY:
+1. Each card must be ONE contiguous rectangle—do NOT split a single card into multiple bounding boxes
+2. If a card extends beyond the screen edge, clip the bounds to the visible area (don't split it)
+3. Cards in the right column are DISTINCT from left column cards—do NOT merge them
+4. x1 < x2 and y1 < y2 (left < right, top < bottom)
+5. Return ONLY the JSON object in the format specified, with no comments, no text, and no markdown
+
+{
+  "cards": [
+    {
+      "card_index": 1,
+      "approx_visual_rank": 1,
+      "bounds": { "x1": INT, "y1": INT, "x2": INT, "y2": INT }
+    }
+  ]
+}
+
+JSON only. No other text.

@@ -3,16 +3,23 @@ Extract the ENTIRE match result from this Free Fire scoreboard screenshot.
 STRICT EXTRACTION RULES:
 
 1. **CARD ISOLATION (CRITICAL - MOST IMPORTANT RULE)**
-Each team card is a SEPARATE rectangular box with CLEAR boundaries. Process each card INDEPENDENTLY:
+Each team card is a SEPARATE rectangular box with a LARGE YELLOW/ORANGE PLACEMENT NUMBER on the left side.
+
+**HOW TO IDENTIFY EACH CARD:**
+- Each card has a BIG PLACEMENT NUMBER (1, 2, 3, ..., 12) on its LEFT edge
+- This number is ALWAYS visible (even if card is cut off)
+- The placement number DEFINES which card a player belongs to
+- If you see placement "7" next to a player, that player is in card 7
+- If you see placement "8" next to a player, that player is in card 8
+
+**CARD ISOLATION RULES:**
 - NEVER EVER mix players between cards
 - Each FULL card contains 4 players in a 2×2 grid
-- Look at the VISUAL BOUNDARIES of each card rectangle
-- A card's boundary is the dark/black rectangular border around it
+- Look at the PLACEMENT NUMBER to determine which card each player belongs to
 - If a card is CUT OFF at top/bottom, it may show only 1-3 players
-- Players INSIDE a card's boundary belong ONLY to that card
-- Players OUTSIDE a card's boundary belong to a DIFFERENT card
-- When a card at position 7 is cut off showing 2 players, do NOT take players from position 8
-- VERIFY: Does this player's row physically sit inside THIS card's rectangle?
+- Players next to placement number "7" belong ONLY to card 7
+- Players next to placement number "8" belong ONLY to card 8
+- VERIFY: What placement number is on the LEFT side of this player's row?
 
 2. **TEAM CARD STRUCTURE**
 Each squad card contains:
@@ -74,18 +81,27 @@ If 12 cards, some may be partially cut off at edges.
 - The placement number on cards is almost ALWAYS visible (99%)
 - Keep each card ISOLATED—never mix players from different cards
 
-**EXAMPLE OF CORRECT PARTIAL CARD HANDLING:**
-If card at position 7 (right column, top) is cut off at bottom:
-- You see: 2 players inside card 7's boundary
-- Card 8 below has 4 players in its own boundary
-- CORRECT: Card 7 returns 2 players only
-- WRONG: Card 7 returns 4 players (taking 2 from card 8)
+**CRITICAL: USE PLACEMENT NUMBER TO IDENTIFY CARDS**
+- The PLACEMENT NUMBER (1-12) on the LEFT side of each card is the DEFINITIVE identifier
+- When you see a large "7" on the left, ALL player rows in that card belong to placement 7
+- When you see a large "8" on the left, ALL player rows in that card belong to placement 8
+- Do NOT assign players to a card unless they are next to that card's placement number
+- Each placement number appears ONCE—find it and use it to identify the card
 
-**HOW TO IDENTIFY CARD BOUNDARIES:**
-- Each card has a dark rectangular border
-- Cards are stacked vertically in two columns
-- The space BETWEEN cards is the boundary separator
-- Look for the horizontal gap between cards
+**EXAMPLE OF CORRECT PARTIAL CARD HANDLING:**
+If card at position 7 (right column, top) is cut off at top showing 2 visible players:
+- Find the placement number "7" (large yellow digit on left)
+- Count only players that are visually grouped with the "7"
+- Below that, you'll see placement number "8" with its own players
+- CORRECT: Card 7 = 2 players (grouped with "7"), Card 8 = 4 players (grouped with "8")
+- WRONG: Card 7 = 4 players (mixing players from "7" and "8")
+
+**HOW TO ASSIGN PLAYERS TO CARDS:**
+1. Find the large yellow/orange placement number (1, 2, 3... 12)
+2. All players visually grouped with that number belong to that card
+3. When you see a NEW placement number, that's a NEW card
+4. Never assign a player to a card unless they are next to that card's number
+5. If a card is cut off showing only 2 players next to its number, report only 2 players
 
 8. **OUTPUT FORMAT (STRICT JSON ONLY)**
 

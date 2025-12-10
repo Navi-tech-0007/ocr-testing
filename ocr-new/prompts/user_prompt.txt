@@ -1,5 +1,12 @@
 You are given a full screenshot of a Free Fire match scoreboard.
 
+LAYOUT STRUCTURE:
+The scoreboard has TWO COLUMNS side-by-side:
+- LEFT COLUMN: Cards with placement numbers 1, 2, 3, 4, 5, 6 (top to bottom)
+- RIGHT COLUMN: Cards with placement numbers 7, 8, 9, 10, 11, 12 (top to bottom)
+- Each card is a SEPARATE dark rectangular box
+- Cards in the right column are DISTINCT from left column cards—do NOT merge or split them
+
 IMPORTANT: The scoreboard is scrollable. A single screenshot may show:
 - 5-6 fully visible cards
 - 1 card partially visible (cut off at top or bottom edge)
@@ -14,14 +21,17 @@ Each TEAM CARD represents one squad and contains exactly 4 player rows arranged 
 Your task:
 1. Identify every visible TEAM CARD in the screenshot (even partially visible ones).
 2. For each detected card, return:
-   - card_index: the visual top-to-bottom order (1 = top-most visible card).
+   - card_index: the visual top-to-bottom order (1 = top-most visible card, counting both columns together).
    - approx_visual_rank: same as card_index unless uncertain.
-   - bounds: the bounding box of the entire card in pixel coordinates.
+   - bounds: the bounding box of the ENTIRE card in pixel coordinates (must be a single contiguous rectangle).
 
 Bounding boxes:
 - Use coordinates { "x1": INT, "y1": INT, "x2": INT, "y2": INT }.
 - Coordinates must be relative to the FULL screenshot.
+- x1 < x2 and y1 < y2 (left < right, top < bottom)
 - If a card is partially cut off at screen edge, return the VISIBLE portion only.
+- CRITICAL: Each card must be ONE rectangle—do NOT split a single card into multiple bounding boxes.
+- If a card extends beyond the screen edge, clip the bounds to the visible area.
 
 Return JSON ONLY in this exact structure:
 
@@ -39,3 +49,4 @@ Rules:
 - Do not extract player names or kills in this step.
 - Do not include extra fields.
 - If uncertain, estimate but keep values reasonable.
+- CRITICAL: Do NOT split a single card into multiple bounding boxes. Each card = ONE rectangle.

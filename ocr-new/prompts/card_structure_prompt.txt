@@ -1,0 +1,51 @@
+Analyze this Free Fire scoreboard screenshot and identify the card structure.
+
+**PLACEMENT NUMBER APPEARANCE:**
+- Each card has a LARGE STYLIZED NUMBER on its LEFT edge
+- Placement "1" is in GOLD/YELLOW color (winner)
+- Placements 2-12 are in WHITE color
+- Numbers are BIG with italic/slanted font, easy to see
+- Examples: "1" is gold, "7" is white, "12" is white
+
+**LAYOUT:**
+- LEFT column: Cards with placements 1, 2, 3, 4, 5, 6 (top to bottom)
+- RIGHT column: Cards with placements 7, 8, 9, 10, 11, 12 (top to bottom)
+- Each card is a dark rectangular box with the placement number on its left side
+
+**YOUR TASK:**
+For each VISIBLE team card:
+1. Find the large placement number (1-12) on the left edge (gold for #1, white for 2-12)
+2. Count how many PLAYERS are VISIBLE inside that card's boundary (usually 4, but may be 2 or 3 if cut off)
+3. If a card is CUT OFF at top/bottom, count ONLY visible players
+
+**PLAYER ROW LAYOUT:**
+Each player row shows:
+- Player name (white text on left)
+- Orange/yellow kill number (e.g., "4", "0", "7")
+- "Eliminations" text (after the kill number)
+Example: "SAVA 06⚫   4 Eliminations" means player "SAVA 06⚫" has 4 kills
+
+**COUNTING RULES:**
+- Look at the placement number to identify each card
+- Count INDIVIDUAL PLAYERS, not rows
+- Each card has a 2×2 grid layout:
+  - TOP ROW: 2 players (left player + right player)
+  - BOTTOM ROW: 2 players (left player + right player)
+  - TOTAL: 4 players per full card
+- A full card has 4 players visible
+- A cut-off card may show only 2 players (one row) or 3 players
+- Count each player you can see inside the card boundary
+- Do NOT assume 4 if you can only see fewer
+
+**OUTPUT FORMAT (JSON only):**
+{
+  "cards": [
+    {"placement": 1, "visible_players": 4},
+    {"placement": 2, "visible_players": 4},
+    {"placement": 7, "visible_players": 2},
+    {"placement": 8, "visible_players": 4}
+  ]
+}
+
+List ALL visible cards with their actual visible player count.
+Return ONLY the JSON, no other text.
