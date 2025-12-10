@@ -2,37 +2,69 @@ Extract the ENTIRE match result from this Free Fire scoreboard screenshot.
 
 STRICT EXTRACTION RULES:
 
-1. **TEAM IDENTIFICATION**
-Each squad card contains:
-- Squad/team name (top-left, white text)
-- Placement number (large yellow/orange digit)
-- Total kills (orange/yellow number, usually larger)
-- Up to 4 player rows
+1. **CARD ISOLATION (CRITICAL)**
+Each team card is a SEPARATE rectangular box. Process each card INDEPENDENTLY:
+- NEVER mix players between cards
+- Each card contains EXACTLY 4 players in a 2×2 grid
+- Players in one card belong ONLY to that card
+- If you see a player row, identify which card's bounding box contains it
 
-2. **PLAYER ROWS (4 per card)**
-Each row contains:
+2. **TEAM CARD STRUCTURE**
+Each squad card contains:
+- Squad/team name (same as first player's clan tag, e.g. "TLx" in TLxNINJA)
+- Placement number (large yellow/orange digit on left edge)
+- EXACTLY 4 player rows in 2×2 layout:
+  - Row 1: slots 1 (left) and 2 (right)
+  - Row 2: slots 3 (left) and 4 (right)
+
+3. **PLAYER ROWS**
+Each player row contains:
 - Player in-game name (white text)
 - One orange/yellow kill digit (player kills)
 - The kill digit ALWAYS appears right before "Elimina…" or "Eliminations"
 - Ignore any white digits inside names—they are NOT kills
 
-3. **COLOR RULES FOR KILLS**
-- Player kills: ALWAYS orange or yellow
-- Team total kills: Also orange, usually larger/separate
+4. **COLOR RULES FOR KILLS**
+- Player kills: ALWAYS orange or yellow colored digit
 - Ignore white numbers—white digits are NOT kills
+- Each player has exactly ONE kill number (0-30 range)
+- Team total kills: sum of 4 players (0-50 range)
 
-4. **PLACEMENT NUMBER**
-The placement is the large yellow/orange number inside the card.
+5. **DIGIT VERIFICATION (CRITICAL FOR ACCURACY)**
+Carefully distinguish these commonly confused digits:
+- **0 vs 8**: 0 has ONE hole, 8 has TWO holes (figure-8 shape)
+- **0 vs 6**: 6 has a tail at top-left, 0 is symmetric oval
+- **0 vs 9**: 9 has a tail at bottom, 0 is symmetric oval
+- **8 vs 6**: 8 has two enclosed loops, 6 has one loop + tail
+- **9 vs 2**: 9 has enclosed circle at top, 2 has open curved top
+- **1 vs 7**: 7 has horizontal top stroke, 1 is vertical line
+
+When uncertain, examine the digit shape carefully before deciding.
+
+6. **PLACEMENT NUMBER**
+The placement is the large number on the LEFT edge of each card.
+- **1st place**: Yellow/gold colored digit
+- **2nd-12th place**: WHITE colored digits
 Extract as: 1 = first place, 2 = second place, etc.
 
-5. **TEAM ORDERING**
-Teams appear EXACTLY in visual order, top-to-bottom, column by column:
-- Left column: cards 1–6 (top to bottom)
-- Right column: cards 7–12 (top to bottom)
+NOTE: Top 3 cards (1st, 2nd, 3rd place) often have a GLARE/SHINE effect.
+Still extract them—look carefully through the glare for the placement number and player data.
 
-Use the card_index provided to map teams correctly.
+7. **CARD LAYOUT & PARTIAL CARDS**
+The scoreboard has TWO columns:
+- **Left column**: ~5-6 cards (placements 1-6)
+- **Right column**: ~6-7 cards (placements 7-12)
 
-6. **OUTPUT FORMAT (STRICT JSON ONLY)**
+If 10 or fewer total cards, all are fully visible.
+If 12 cards, some may be partially cut off at edges.
+
+**PARTIAL CARD RULES:**
+- If a card is cut off and only 2 players are visible, extract ONLY those 2 players
+- Set the other 2 player slots to: `{"slot_index": X, "player_name": "", "kills": null}`
+- The placement number on cards is almost ALWAYS visible (99%)
+- Keep each card ISOLATED—never mix players from different cards
+
+8. **OUTPUT FORMAT (STRICT JSON ONLY)**
 
 {
   "teams": [
@@ -64,11 +96,12 @@ Use the card_index provided to map teams correctly.
         }
       ]
     },
-    ... (repeat for all 12 teams)
+    ... (repeat for all VISIBLE teams)
   ]
 }
 
-7. **CRITICAL RULES**
+9. **CRITICAL RULES**
+- NEVER mix players between cards—each card is ISOLATED
 - Do NOT guess missing names—if unclear, set to empty string ""
 - Do NOT output text outside JSON
 - Do NOT hallucinate players—extract exactly 4 per card
@@ -76,12 +109,16 @@ Use the card_index provided to map teams correctly.
 - Do NOT invent kill numbers—only extract visible orange digits
 - If any kill digit is unclear, set "kills": null
 - If team name is unclear, set "team_name": ""
+- VERIFY: sum of 4 player kills MUST EQUAL total_kills for each team
 
-8. **VALIDATION**
-- Exactly 12 teams
-- Exactly 4 players per team
-- All placements 1-12
-- All kills are numbers or null
+10. **VALIDATION**
+- Number of teams = number of VISIBLE cards (5-12)
+- Exactly 4 players per team (2×2 grid)
+- Placements are numbers (1-12 range)
+- Player kills: numbers (0-20) or null
+- Team total_kills: numbers (0-50) or null
 - All names are strings
+- VERIFY each player belongs to the correct card bounding box
+- VERIFY: player1.kills + player2.kills + player3.kills + player4.kills == total_kills
 
 Extract now. Return ONLY the JSON object, no other text.

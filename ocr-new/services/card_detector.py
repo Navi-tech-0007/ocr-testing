@@ -66,7 +66,7 @@ class TeamCardDetector:
         """Convert image bytes to base64 string."""
         return base64.standard_b64encode(image_bytes).decode("utf-8")
     
-    def _call_claude_vision(self, image_base64: str, prompt_text: str, is_retry: bool = False) -> str:
+    def _call_claude_vision(self, image_base64: str, prompt_text: str, is_retry: bool = False) -> tuple[str, dict]:
         """
         Call Claude 3.7 Sonnet Vision via AWS Bedrock with image and prompt.
         Uses extended thinking for better accuracy.
@@ -77,7 +77,7 @@ class TeamCardDetector:
             is_retry: Whether this is a retry attempt
             
         Returns:
-            Raw response text from Claude
+            Tuple of (response_text, token_usage_dict)
         """
         # Configure thinking for better accuracy
         reasoning_config = {
@@ -121,13 +121,25 @@ class TeamCardDetector:
             }
         )
         
+        # Extract token usage
+        usage = response.get("usage", {})
+        token_usage = {
+            "input": usage.get("inputTokens", 0),
+            "output": usage.get("outputTokens", 0),
+            "total": usage.get("inputTokens", 0) + usage.get("outputTokens", 0)
+        }
+        
+        logger.info(
+            f"Claude Vision tokens: {token_usage['input']} in, {token_usage['output']} out, {token_usage['total']} total"
+        )
+        
         # Extract text from response (skip reasoning blocks)
         if "output" in response and "message" in response["output"]:
             content_blocks = response["output"]["message"]["content"]
             if isinstance(content_blocks, list):
                 for block in content_blocks:
                     if "text" in block:
-                        return block["text"]
+                        return block["text"], token_usage
         
         raise CardDetectionError("No text content in Bedrock response")
     
@@ -278,7 +290,7 @@ class TeamCardDetector:
         
         # Call Claude Vision (with retry)
         start_time = time.time()
-        response_text = self._call_claude_vision(image_base64, self.user_prompt, is_retry=False)
+        response_text, token_usage = self._call_claude_vision(image_base64, self.user_prompt, is_retry=False)
         latency = time.time() - start_time
         logger.info(f"Bedrock Claude call completed. Latency: {latency:.2f}s")
         
@@ -289,11 +301,15 @@ class TeamCardDetector:
             logger.warning(f"JSON parse failed on first attempt: {str(e)}. Retrying...")
             # Retry with retry prompt
             start_time = time.time()
-            response_text = self._call_claude_vision(image_base64, self.retry_prompt, is_retry=True)
+            retry_response_text, retry_token_usage = self._call_claude_vision(image_base64, self.retry_prompt, is_retry=True)
             latency = time.time() - start_time
             logger.info(f"Bedrock Claude retry call completed. Latency: {latency:.2f}s")
+            # Accumulate tokens from retry
+            token_usage["input"] += retry_token_usage["input"]
+            token_usage["output"] += retry_token_usage["output"]
+            token_usage["total"] += retry_token_usage["total"]
             try:
-                data = self._parse_json_response(response_text)
+                data = self._parse_json_response(retry_response_text)
                 logger.info("JSON parsed successfully on retry")
             except CardDetectionError as e:
                 logger.error(f"JSON parse failed after retry: {str(e)}")
@@ -311,10 +327,12 @@ class TeamCardDetector:
             logger.warning("No cards detected in image")
             return {
                 "cards": [],
-                "error": "NO_CARDS_DETECTED"
+                "error": "NO_CARDS_DETECTED",
+                "tokens": token_usage
             }
         
         logger.info(f"Detection successful. Returning {len(cards)} card(s)")
         return {
-            "cards": cards
+            "cards": cards,
+            "tokens": token_usage
         }

@@ -986,7 +986,8 @@ async def claude_full_result(request_data: dict = None):
                 "request_id": request_id,
                 "success": True,
                 "data": result["data"],
-                "latency_seconds": result["latency_seconds"]
+                "latency_seconds": result["latency_seconds"],
+                "tokens": result.get("tokens", {})
             }
         )
     

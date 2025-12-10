@@ -810,7 +810,7 @@
     
     <script>
         // API Configuration
-        const API_BASE_URL = 'http://13.58.161.63:8000';
+        const API_BASE_URL = 'http://3.149.239.69:8000';
         
         // Generate unique run ID
         const runId = 'run_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -2236,7 +2236,7 @@
             }
         }
         
-        // Step 3: Run OCR (Tesseract) Handler
+        // Step 3: Run OCR (Tesseract) Handler - Card by Card
         async function runOCRStep3() {
             if (!state.step2Results) {
                 showError('Please complete Step 2 first');
@@ -2248,7 +2248,7 @@
             runOCRBtn.disabled = true;
             runOCRText.textContent = '⏳ Running OCR...';
             
-            appendLog('Step 3 (OCR): Starting Tesseract extraction...', 'info');
+            appendLog('Step 3 (OCR): Starting Tesseract extraction (card-by-card)...', 'info');
             
             try {
                 // Get screenshot base64
@@ -2257,59 +2257,78 @@
                     base64Data = base64Data.split(',')[1];
                 }
                 
-                // Prepare kill crops from Step 2 players (static geometry returns kill_box in absolute coordinates)
-                const killCrops = [];
-                if (state.step2Results.players) {
-                    for (const player of state.step2Results.players) {
-                        // Static geometry returns kill_box (already padded), not kill_box_refined
+                // Get unique card indices
+                const cardIndices = [...new Set(state.step2Results.players.map(p => p.card_index))].sort((a, b) => a - b);
+                
+                const allResults = [];
+                
+                // Process each card
+                for (const cardIndex of cardIndices) {
+                    appendLog(`Step 3 (OCR): Processing Card ${cardIndex}...`, 'info');
+                    
+                    // Get all players for this card
+                    const cardPlayers = state.step2Results.players.filter(p => p.card_index === cardIndex);
+                    
+                    // Build kill crops for this card
+                    const killCrops = [];
+                    for (const player of cardPlayers) {
                         const killBox = player.kill_box || player.kill_box_refined;
                         if (killBox) {
                             killCrops.push({
                                 card_index: player.card_index,
                                 slot_index: player.slot_index,
-                                kill_box: killBox  // Absolute screenshot coordinates
+                                kill_box: killBox
                             });
                         }
                     }
+                    
+                    if (killCrops.length === 0) {
+                        appendLog(`Step 3 (OCR): Card ${cardIndex} - No kill boxes found`, 'warning');
+                        continue;
+                    }
+                    
+                    // Call OCR extraction endpoint for this card
+                    const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            kill_crops: killCrops,
+                            screenshot_base64: base64Data
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.results) {
+                        const validCount = data.results.filter(r => r.kills !== null).length;
+                        appendLog(`Step 3 (OCR): Card ${cardIndex} - ${validCount}/${data.results.length} kills extracted`, 'success');
+                        allResults.push(...data.results);
+                    } else {
+                        const errorMsg = data.error || 'Unknown error';
+                        appendLog(`Step 3 (OCR): Card ${cardIndex} - Failed: ${errorMsg}`, 'warning');
+                    }
                 }
                 
-                console.log('Step 3: Sending', killCrops.length, 'kill crops to backend');
-                console.log('Sample kill_crop:', killCrops[0]);
-                
-                // Call OCR extraction endpoint
-                const response = await fetch(`${API_BASE_URL}/ocr/kills/extract`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        kill_crops: killCrops,
-                        screenshot_base64: base64Data
-                    })
-                });
-                
-                const data = await response.json();
-                
-                console.log('Step 3 Response:', data);
-                console.log('Response OK:', response.ok);
-                
-                if (response.ok && data.results) {
-                    appendLog(`Step 3 (OCR): Extracted ${data.results.length} kill counts`, 'success');
+                if (allResults.length > 0) {
+                    const validCount = allResults.filter(r => r.kills !== null).length;
+                    appendLog(`Step 3 (OCR): Complete - ${validCount}/${allResults.length} total kills extracted`, 'success');
                     
                     // Store results
-                    state.step3Results = data;
-                    saveStepResult(3, data);
+                    state.step3Results = {
+                        request_id: 'batch-' + Date.now(),
+                        results: allResults
+                    };
+                    saveStepResult(3, state.step3Results);
                     updateProgress(3, 'complete');
                     
                     // Display OCR results
-                    document.getElementById('ocrResultsJson').textContent = JSON.stringify(data.results, null, 2);
+                    document.getElementById('ocrResultsJson').textContent = JSON.stringify(allResults, null, 2);
                     document.getElementById('ocrResultsContainer').style.display = 'block';
-                    
-                    appendLog('Step 3 (OCR): Complete. Check OCR Results above.', 'success');
                 } else {
-                    const errorMsg = data.error || 'Unknown error';
-                    appendLog(`Step 3 (OCR): Failed - ${errorMsg}`, 'error');
-                    showError(`OCR extraction failed: ${errorMsg}`);
+                    appendLog('Step 3 (OCR): No results extracted', 'error');
+                    showError('OCR extraction failed - no results');
                 }
             } catch (error) {
                 appendLog(`Step 3 (OCR): Error - ${error.message}`, 'error');

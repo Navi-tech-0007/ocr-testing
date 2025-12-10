@@ -12,42 +12,45 @@ class StaticSlotGeometry:
     """
     Compute player slots and kill boxes using static geometry ratios.
     No Claude Vision, no ML — pure coordinate math based on card bounds.
+    
+    Card layout: 2 rows × 2 columns = 4 player slots per card.
+    Each slot has a name zone (left) and kill zone (right).
     """
 
-    # X-ranges for left and right columns (relative to card width)
-    LEFT_COL_X1 = 0.05
-    LEFT_COL_X2 = 0.45
-    RIGHT_COL_X1 = 0.55
-    RIGHT_COL_X2 = 0.95
-
-    # Y-ranges for row 1 and row 2 (relative to card height)
-    ROW1_Y1 = 0.05
+    # Rows: top/bottom halves of card
+    ROW1_Y1 = 0.00
     ROW1_Y2 = 0.50
     ROW2_Y1 = 0.50
-    ROW2_Y2 = 0.95
+    ROW2_Y2 = 1.00
 
-    # Inside each row-column box, split into name zone and kill zone
-    NAME_ZONE_X1 = 0.00
-    NAME_ZONE_X2 = 0.65
-    KILL_ZONE_X1 = 0.65
-    KILL_ZONE_X2 = 1.00
+    # Columns: left/right halves of card
+    LEFT_X1 = 0.00
+    LEFT_X2 = 0.50
+    RIGHT_X1 = 0.50
+    RIGHT_X2 = 1.00
 
-    # Extra padding for kill boxes (relative to card/row dimensions)
-    KILL_LEFT_PAD_RATIO = 0.05    # 5% of card width (more generous)
-    KILL_RIGHT_PAD_RATIO = 0.05   # 5% of card width (more generous)
-    KILL_TOP_PAD_RATIO = 0.20     # 20% of row height (more generous)
-    KILL_BOTTOM_PAD_RATIO = 0.20  # 20% of row height (more generous)
+    # Inside each half, split into "name zone" + "kill zone"
+    # Kill digit is around 45% mark, name ends around 40-45%
+    NAME_ZONE_RATIO = 0.60   # first 45% of half width (player name area)
+    # Kill zone is remaining 55% (digit + "X Eliminations" text)
 
-    # Minimum kill box dimensions
-    MIN_KILL_WIDTH = 15
-    MIN_KILL_HEIGHT = 15
+    # Kill vertical band: about 70% of the row height, centered
+    KILL_HEIGHT_RATIO = 0.70
+
+    # Extra padding to "zoom out" (relative to card size, not zone size)
+    KILL_PAD_X_RATIO = 0.03   # 3% of card width on each side
+    KILL_PAD_Y_RATIO = 0.08   # 8% of card height on each side
+
+    # Minimum kill box dimensions (for reliable OCR)
+    MIN_KILL_WIDTH = 40
+    MIN_KILL_HEIGHT = 20
 
     # Preview scale factor
     PREVIEW_SCALE_FACTOR = 3.0
 
     def __init__(self):
         """Initialize the static geometry service."""
-        logger.info("StaticSlotGeometry initialized")
+        logger.info("StaticSlotGeometry initialized (simplified 2x2 layout)")
 
     def compute_slots_and_kill_boxes(
         self,
@@ -57,6 +60,11 @@ class StaticSlotGeometry:
     ) -> list:
         """
         Compute player slots and kill boxes using static geometry.
+
+        Card layout: 2 rows × 2 columns = 4 player slots per card.
+        - Row 1 (top half): slots 1 (left) and 2 (right)
+        - Row 2 (bottom half): slots 3 (left) and 4 (right)
+        - Each slot: name zone (left 60%) + kill zone (right 40%)
 
         Args:
             cards: List of card dicts with card_index and bounds
@@ -89,17 +97,17 @@ class StaticSlotGeometry:
                     logger.warning(f"Card {card_index}: Invalid dimensions {card_w}x{card_h}")
                     continue
 
-                # Define row boxes (absolute coordinates)
+                # Row Y ranges (absolute coordinates)
                 row1_y1 = card_y1 + int(card_h * self.ROW1_Y1)
                 row1_y2 = card_y1 + int(card_h * self.ROW1_Y2)
                 row2_y1 = card_y1 + int(card_h * self.ROW2_Y1)
                 row2_y2 = card_y1 + int(card_h * self.ROW2_Y2)
 
-                # Define column boxes (absolute coordinates)
-                left_x1 = card_x1 + int(card_w * self.LEFT_COL_X1)
-                left_x2 = card_x1 + int(card_w * self.LEFT_COL_X2)
-                right_x1 = card_x1 + int(card_w * self.RIGHT_COL_X1)
-                right_x2 = card_x1 + int(card_w * self.RIGHT_COL_X2)
+                # Column X ranges (absolute coordinates)
+                left_x1 = card_x1 + int(card_w * self.LEFT_X1)
+                left_x2 = card_x1 + int(card_w * self.LEFT_X2)
+                right_x1 = card_x1 + int(card_w * self.RIGHT_X1)
+                right_x2 = card_x1 + int(card_w * self.RIGHT_X2)
 
                 # Slot definitions: (row_y1, row_y2, col_x1, col_x2, position, slot_index)
                 slots_config = [
@@ -109,65 +117,83 @@ class StaticSlotGeometry:
                     (row2_y1, row2_y2, right_x1, right_x2, "ROW2_RIGHT", 4),
                 ]
 
+                # Padding values (computed once per card)
+                pad_x = int(card_w * self.KILL_PAD_X_RATIO)
+                pad_y = int(card_h * self.KILL_PAD_Y_RATIO)
+
                 for row_y1, row_y2, col_x1, col_x2, position, slot_index in slots_config:
                     try:
                         col_w = col_x2 - col_x1
                         row_h = row_y2 - row_y1
 
-                        # Name box (left portion of the column)
-                        name_x1 = col_x1 + int(col_w * self.NAME_ZONE_X1)
-                        name_x2 = col_x1 + int(col_w * self.NAME_ZONE_X2)
+                        # === NAME BOX ===
+                        # Left portion of the half (60%)
+                        name_x1 = col_x1
+                        name_x2 = col_x1 + int(col_w * self.NAME_ZONE_RATIO)
                         name_y1 = row_y1
                         name_y2 = row_y2
 
-                        # Raw kill box (right portion of the column)
-                        kill_raw_x1 = col_x1 + int(col_w * self.KILL_ZONE_X1)
-                        kill_raw_x2 = col_x1 + int(col_w * self.KILL_ZONE_X2)
-                        kill_raw_y1 = row_y1
-                        kill_raw_y2 = row_y2
+                        # === KILL BOX ===
+                        # Kill zone: right 40% of the half-column
+                        kill_zone_x1 = col_x1 + int(col_w * self.NAME_ZONE_RATIO)
+                        kill_zone_x2 = col_x2
 
-                        # Apply padding to kill box
-                        kill_x1 = max(
-                            int(kill_raw_x1 - card_w * self.KILL_LEFT_PAD_RATIO),
-                            card_x1
-                        )
-                        kill_x2 = min(
-                            int(kill_raw_x2 + card_w * self.KILL_RIGHT_PAD_RATIO),
-                            card_x2
-                        )
-                        kill_y1 = max(
-                            int(kill_raw_y1 - row_h * self.KILL_TOP_PAD_RATIO),
-                            card_y1
-                        )
-                        kill_y2 = min(
-                            int(kill_raw_y2 + row_h * self.KILL_BOTTOM_PAD_RATIO),
-                            card_y2
-                        )
+                        # Vertical: centered band of the row (60% height)
+                        row_center = row_y1 + row_h / 2.0
+                        kill_band_h = int(row_h * self.KILL_HEIGHT_RATIO)
+                        base_kill_y1 = int(row_center - kill_band_h / 2)
+                        base_kill_y2 = int(row_center + kill_band_h / 2)
 
-                        # Clamp to screenshot bounds
+                        # Apply padding to "zoom out"
+                        kill_x1 = kill_zone_x1 - pad_x
+                        kill_x2 = kill_zone_x2 + pad_x
+                        kill_y1 = base_kill_y1 - pad_y
+                        kill_y2 = base_kill_y2 + pad_y
+
+                        # Clamp to card bounds
+                        kill_x1 = max(kill_x1, card_x1)
+                        kill_x2 = min(kill_x2, card_x2)
+                        kill_y1 = max(kill_y1, card_y1)
+                        kill_y2 = min(kill_y2, card_y2)
+
+                        # Enforce minimum width by symmetric expansion
+                        kill_width = kill_x2 - kill_x1
+                        if kill_width < self.MIN_KILL_WIDTH:
+                            deficit = self.MIN_KILL_WIDTH - kill_width
+                            kill_x1 = max(kill_x1 - deficit // 2, card_x1)
+                            kill_x2 = min(kill_x2 + deficit // 2 + deficit % 2, card_x2)
+                            kill_width = kill_x2 - kill_x1
+
+                        # Enforce minimum height by symmetric expansion
+                        kill_height = kill_y2 - kill_y1
+                        if kill_height < self.MIN_KILL_HEIGHT:
+                            deficit = self.MIN_KILL_HEIGHT - kill_height
+                            kill_y1 = max(kill_y1 - deficit // 2, card_y1)
+                            kill_y2 = min(kill_y2 + deficit // 2 + deficit % 2, card_y2)
+                            kill_height = kill_y2 - kill_y1
+
+                        # Final clamp to screenshot bounds
                         kill_x1 = max(kill_x1, 0)
                         kill_y1 = max(kill_y1, 0)
                         kill_x2 = min(kill_x2, screenshot_width)
                         kill_y2 = min(kill_y2, screenshot_height)
+                        name_x1 = max(name_x1, 0)
+                        name_y1 = max(name_y1, 0)
+                        name_x2 = min(name_x2, screenshot_width)
+                        name_y2 = min(name_y2, screenshot_height)
 
                         kill_width = kill_x2 - kill_x1
                         kill_height = kill_y2 - kill_y1
-
-                        # Validate minimum dimensions
-                        is_valid = (
-                            kill_width >= self.MIN_KILL_WIDTH
-                            and kill_height >= self.MIN_KILL_HEIGHT
-                        )
 
                         player = {
                             "card_index": card_index,
                             "slot_index": slot_index,
                             "position": position,
                             "name_box": {
-                                "x1": max(name_x1, 0),
-                                "y1": max(name_y1, 0),
-                                "x2": min(name_x2, screenshot_width),
-                                "y2": min(name_y2, screenshot_height),
+                                "x1": name_x1,
+                                "y1": name_y1,
+                                "x2": name_x2,
+                                "y2": name_y2,
                             },
                             "kill_box": {
                                 "x1": kill_x1,
@@ -175,24 +201,14 @@ class StaticSlotGeometry:
                                 "x2": kill_x2,
                                 "y2": kill_y2,
                             },
-                            "kill_box_dimensions": {
-                                "width": kill_width,
-                                "height": kill_height,
-                            },
-                            "kill_box_valid": is_valid,
                         }
 
-                        if not is_valid:
-                            player["kill_box_error"] = (
-                                f"Dimensions too small: {kill_width}x{kill_height} "
-                                f"(min: {self.MIN_KILL_WIDTH}x{self.MIN_KILL_HEIGHT})"
-                            )
-
-                        players.append(player)
                         logger.debug(
                             f"Card {card_index} {position} (slot {slot_index}): "
-                            f"kill_box {kill_width}x{kill_height}"
+                            f"kill_box ({kill_x1},{kill_y1})-({kill_x2},{kill_y2}) = {kill_width}x{kill_height}"
                         )
+
+                        players.append(player)
 
                     except Exception as e:
                         logger.error(

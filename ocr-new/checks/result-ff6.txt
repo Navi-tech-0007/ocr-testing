@@ -1,0 +1,413 @@
+{
+  "request_id": "8c9a62ff-633f-4b0f-9b58-7f978d1c2462",
+  "players": [
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 145,
+        "y1": 24,
+        "x2": 212,
+        "y2": 36
+      },
+      "kill_box": {
+        "x1": 254,
+        "y1": 24,
+        "x2": 262,
+        "y2": 36
+      },
+      "card_index": 1
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 430,
+        "y1": 24,
+        "x2": 505,
+        "y2": 36
+      },
+      "kill_box": {
+        "x1": 535,
+        "y1": 24,
+        "x2": 543,
+        "y2": 36
+      },
+      "card_index": 1
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 158,
+        "y1": 54,
+        "x2": 223,
+        "y2": 66
+      },
+      "kill_box": {
+        "x1": 254,
+        "y1": 54,
+        "x2": 262,
+        "y2": 66
+      },
+      "card_index": 1
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 430,
+        "y1": 54,
+        "x2": 509,
+        "y2": 66
+      },
+      "kill_box": {
+        "x1": 535,
+        "y1": 54,
+        "x2": 543,
+        "y2": 66
+      },
+      "card_index": 1
+    },
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 110,
+        "y1": 8,
+        "x2": 170,
+        "y2": 20
+      },
+      "kill_box": {
+        "x1": 254,
+        "y1": 8,
+        "x2": 261,
+        "y2": 20
+      },
+      "card_index": 3
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 453,
+        "y1": 8,
+        "x2": 508,
+        "y2": 20
+      },
+      "kill_box": {
+        "x1": 536,
+        "y1": 8,
+        "x2": 543,
+        "y2": 20
+      },
+      "card_index": 3
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 110,
+        "y1": 62,
+        "x2": 170,
+        "y2": 74
+      },
+      "kill_box": {
+        "x1": 254,
+        "y1": 62,
+        "x2": 261,
+        "y2": 74
+      },
+      "card_index": 3
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 453,
+        "y1": 62,
+        "x2": 508,
+        "y2": 74
+      },
+      "kill_box": {
+        "x1": 511,
+        "y1": 62,
+        "x2": 518,
+        "y2": 74
+      },
+      "card_index": 3
+    },
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 88,
+        "y1": 36,
+        "x2": 172,
+        "y2": 53
+      },
+      "kill_box": {
+        "x1": 337,
+        "y1": 36,
+        "x2": 347,
+        "y2": 53
+      },
+      "card_index": 4
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 395,
+        "y1": 36,
+        "x2": 470,
+        "y2": 53
+      },
+      "kill_box": {
+        "x1": 538,
+        "y1": 36,
+        "x2": 548,
+        "y2": 53
+      },
+      "card_index": 4
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 88,
+        "y1": 73,
+        "x2": 172,
+        "y2": 90
+      },
+      "kill_box": {
+        "x1": 337,
+        "y1": 73,
+        "x2": 347,
+        "y2": 90
+      },
+      "card_index": 4
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 395,
+        "y1": 73,
+        "x2": 470,
+        "y2": 90
+      },
+      "kill_box": {
+        "x1": 538,
+        "y1": 73,
+        "x2": 548,
+        "y2": 90
+      },
+      "card_index": 4
+    },
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 44,
+        "y1": 8,
+        "x2": 83,
+        "y2": 20
+      },
+      "kill_box": {
+        "x1": 235,
+        "y1": 8,
+        "x2": 245,
+        "y2": 20
+      },
+      "card_index": 7
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 160,
+        "y1": 8,
+        "x2": 206,
+        "y2": 20
+      },
+      "kill_box": {
+        "x1": 447,
+        "y1": 8,
+        "x2": 457,
+        "y2": 20
+      },
+      "card_index": 7
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 44,
+        "y1": 28,
+        "x2": 83,
+        "y2": 40
+      },
+      "kill_box": {
+        "x1": 235,
+        "y1": 28,
+        "x2": 245,
+        "y2": 40
+      },
+      "card_index": 7
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 160,
+        "y1": 28,
+        "x2": 206,
+        "y2": 40
+      },
+      "kill_box": {
+        "x1": 447,
+        "y1": 28,
+        "x2": 457,
+        "y2": 40
+      },
+      "card_index": 7
+    },
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 96,
+        "y1": 0,
+        "x2": 143,
+        "y2": 9
+      },
+      "kill_box": {
+        "x1": 237,
+        "y1": 0,
+        "x2": 247,
+        "y2": 9
+      },
+      "card_index": 10
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 307,
+        "y1": 0,
+        "x2": 425,
+        "y2": 9
+      },
+      "kill_box": {
+        "x1": 447,
+        "y1": 0,
+        "x2": 457,
+        "y2": 9
+      },
+      "card_index": 10
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 102,
+        "y1": 43,
+        "x2": 199,
+        "y2": 52
+      },
+      "kill_box": {
+        "x1": 235,
+        "y1": 43,
+        "x2": 245,
+        "y2": 52
+      },
+      "card_index": 10
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 307,
+        "y1": 43,
+        "x2": 425,
+        "y2": 52
+      },
+      "kill_box": {
+        "x1": 447,
+        "y1": 43,
+        "x2": 457,
+        "y2": 52
+      },
+      "card_index": 10
+    },
+    {
+      "slot_index": 1,
+      "position": "ROW1_LEFT",
+      "name_box": {
+        "x1": 128,
+        "y1": 7,
+        "x2": 193,
+        "y2": 22
+      },
+      "kill_box": {
+        "x1": 234,
+        "y1": 7,
+        "x2": 246,
+        "y2": 22
+      },
+      "card_index": 11
+    },
+    {
+      "slot_index": 2,
+      "position": "ROW1_RIGHT",
+      "name_box": {
+        "x1": 352,
+        "y1": 7,
+        "x2": 417,
+        "y2": 22
+      },
+      "kill_box": {
+        "x1": 452,
+        "y1": 7,
+        "x2": 464,
+        "y2": 22
+      },
+      "card_index": 11
+    },
+    {
+      "slot_index": 3,
+      "position": "ROW2_LEFT",
+      "name_box": {
+        "x1": 128,
+        "y1": 27,
+        "x2": 188,
+        "y2": 42
+      },
+      "kill_box": {
+        "x1": 234,
+        "y1": 27,
+        "x2": 246,
+        "y2": 42
+      },
+      "card_index": 11
+    },
+    {
+      "slot_index": 4,
+      "position": "ROW2_RIGHT",
+      "name_box": {
+        "x1": 352,
+        "y1": 27,
+        "x2": 417,
+        "y2": 42
+      },
+      "kill_box": {
+        "x1": 452,
+        "y1": 27,
+        "x2": 464,
+        "y2": 42
+      },
+      "card_index": 11
+    }
+  ]
+}

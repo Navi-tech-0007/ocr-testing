@@ -130,8 +130,8 @@ class FullResultExtractor:
         if not isinstance(teams, list):
             raise FullResultExtractionError("'teams' must be a list")
         
-        if len(teams) != 12:
-            raise FullResultExtractionError(f"Expected 12 teams, got {len(teams)}")
+        if len(teams) < 1 or len(teams) > 12:
+            raise FullResultExtractionError(f"Expected 1-12 teams, got {len(teams)}")
         
         # Validate each team
         for i, team in enumerate(teams):
@@ -241,7 +241,17 @@ class FullResultExtractor:
                 }
             )
             latency = time.time() - start_time
-            logger.info(f"Claude Vision call completed. Latency: {latency:.2f}s")
+            
+            # Extract token usage
+            usage = response.get("usage", {})
+            input_tokens = usage.get("inputTokens", 0)
+            output_tokens = usage.get("outputTokens", 0)
+            total_tokens = input_tokens + output_tokens
+            
+            logger.info(
+                f"Claude Vision call completed. Latency: {latency:.2f}s | "
+                f"Tokens: {input_tokens} in, {output_tokens} out, {total_tokens} total"
+            )
             
             # Extract response
             if "output" not in response or "message" not in response["output"]:
@@ -283,7 +293,12 @@ class FullResultExtractor:
             return {
                 "success": True,
                 "data": data,
-                "latency_seconds": latency
+                "latency_seconds": latency,
+                "tokens": {
+                    "input": input_tokens,
+                    "output": output_tokens,
+                    "total": total_tokens
+                }
             }
         
         except FullResultExtractionError as e:

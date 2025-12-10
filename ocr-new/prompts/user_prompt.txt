@@ -1,5 +1,10 @@
 You are given a full screenshot of a Free Fire match scoreboard.
 
+IMPORTANT: The scoreboard is scrollable. A single screenshot may show:
+- 5-6 fully visible cards
+- 1 card partially visible (cut off at top or bottom edge)
+- Total visible cards typically 5-7 per screenshot (NOT always 12)
+
 Each TEAM CARD represents one squad and contains exactly 4 player rows arranged in a 2×2 grid:
 - Row 1 Left: Player 1
 - Row 1 Right: Player 2
@@ -7,16 +12,16 @@ Each TEAM CARD represents one squad and contains exactly 4 player rows arranged 
 - Row 2 Right: Player 4
 
 Your task:
-1. Identify every visible TEAM CARD in the entire screenshot.
+1. Identify every visible TEAM CARD in the screenshot (even partially visible ones).
 2. For each detected card, return:
-   - card_index: the visual top-to-bottom order (1 = top-most).
+   - card_index: the visual top-to-bottom order (1 = top-most visible card).
    - approx_visual_rank: same as card_index unless uncertain.
    - bounds: the bounding box of the entire card in pixel coordinates.
 
 Bounding boxes:
 - Use coordinates { "x1": INT, "y1": INT, "x2": INT, "y2": INT }.
 - Coordinates must be relative to the FULL screenshot.
-- If a card is partially cut off, still return the visible bounding box.
+- If a card is partially cut off at screen edge, return the VISIBLE portion only.
 
 Return JSON ONLY in this exact structure:
 

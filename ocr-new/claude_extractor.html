@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude OCR Extractor - Squad Space</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: #888;
+            font-size: 0.95rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #00d4ff;
+            border-radius: 2px;
+        }
+
+        /* Upload Section */
+        .upload-zone {
+            border: 2px dashed rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .upload-zone:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-zone.has-image {
+            padding: 10px;
+        }
+
+        .upload-zone img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 6px;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            color: #888;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Thinking Panel */
+        .thinking-panel {
+            background: rgba(123, 44, 191, 0.1);
+            border: 1px solid rgba(123, 44, 191, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .thinking-panel.active {
+            display: block;
+        }
+
+        .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: #b388ff;
+            font-weight: 600;
+        }
+
+        .thinking-content {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(179, 136, 255, 0.3);
+            border-top-color: #b388ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Results */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .team-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+
+        .team-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .team-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .team-placement {
+            background: linear-gradient(90deg, #ffd700, #ff8c00);
+            color: #000;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .team-placement.top3 {
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+        }
+
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .player-row:last-child {
+            border-bottom: none;
+        }
+
+        .player-name {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .player-kills {
+            font-weight: 700;
+            color: #ff9500;
+            font-size: 1rem;
+        }
+
+        .team-total {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+        }
+
+        .team-total-label {
+            color: #888;
+        }
+
+        .team-total-value {
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .status-message.active {
+            display: block;
+        }
+
+        .status-message.error {
+            background: rgba(255, 59, 48, 0.15);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff6b6b;
+        }
+
+        .status-message.success {
+            background: rgba(52, 199, 89, 0.15);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: #6bff8e;
+        }
+
+        /* JSON Output */
+        .json-toggle {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .json-toggle-header {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .json-toggle-header:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .json-content {
+            display: none;
+            padding: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .json-content.active {
+            display: block;
+        }
+
+        .json-content pre {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.8rem;
+            color: #aaa;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Claude OCR Extractor</h1>
+            <p>Extract match results from Free Fire scoreboards using Claude Vision</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Panel - Upload & Controls -->
+            <div class="left-panel">
+                <div class="panel">
+                    <div class="panel-title">Upload Screenshot</div>
+                    
+                    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Click to upload or drag & drop</div>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                    
+                    <button class="btn btn-primary" id="extractBtn" disabled>
+                        Extract with Claude
+                    </button>
+
+                    <div class="stats" id="stats" style="display: none;">
+                        <div class="stat-box">
+                            <div class="stat-value" id="statTeams">-</div>
+                            <div class="stat-label">Teams</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statTokens">-</div>
+                            <div class="stat-label">Tokens</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="statLatency">-</div>
+                            <div class="stat-label">Latency</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thinking Panel -->
+                <div class="panel" style="margin-top: 16px;">
+                    <div class="panel-title">Claude's Thinking</div>
+                    <div class="thinking-panel" id="thinkingPanel">
+                        <div class="thinking-header">
+                            <span class="spinner"></span>
+                            <span>Processing...</span>
+                        </div>
+                        <div class="thinking-content" id="thinkingContent"></div>
+                    </div>
+                    <div id="thinkingPlaceholder" style="color: #666; font-size: 0.9rem;">
+                        Thinking will appear here during extraction...
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+
+            <!-- Right Panel - Results -->
+            <div class="right-panel">
+                <div class="panel">
+                    <div class="panel-title">Extraction Results</div>
+                    
+                    <div id="resultsContainer">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div>Upload a screenshot and click Extract to see results</div>
+                        </div>
+                    </div>
+
+                    <div class="json-toggle" id="jsonToggle" style="display: none;">
+                        <div class="json-toggle-header" onclick="toggleJson()">
+                            <span>📄 Raw JSON Response</span>
+                            <span id="jsonArrow">▼</span>
+                        </div>
+                        <div class="json-content" id="jsonContent">
+                            <pre id="jsonPre"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://3.149.239.69:8000';
+        
+        let screenshotBase64 = null;
+        let extractionResult = null;
+
+        // DOM Elements
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const extractBtn = document.getElementById('extractBtn');
+        const thinkingPanel = document.getElementById('thinkingPanel');
+        const thinkingContent = document.getElementById('thinkingContent');
+        const thinkingPlaceholder = document.getElementById('thinkingPlaceholder');
+        const statusMessage = document.getElementById('statusMessage');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const stats = document.getElementById('stats');
+        const jsonToggle = document.getElementById('jsonToggle');
+
+        // File Upload
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = '#00d4ff';
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processFile(file);
+            }
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result.split(',')[1];
+                screenshotBase64 = base64;
+                
+                // Show preview
+                uploadZone.innerHTML = `<img src="${e.target.result}" alt="Screenshot">`;
+                uploadZone.classList.add('has-image');
+                extractBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Extract
+        extractBtn.addEventListener('click', runExtraction);
+
+        async function runExtraction() {
+            if (!screenshotBase64) return;
+
+            extractBtn.disabled = true;
+            extractBtn.textContent = 'Extracting...';
+            
+            // Show thinking panel
+            thinkingPanel.classList.add('active');
+            thinkingPlaceholder.style.display = 'none';
+            thinkingContent.textContent = 'Sending image to Claude...';
+            
+            showStatus('', '');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/ocr/claude-full-result`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ screenshot_base64: screenshotBase64 })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    extractionResult = data;
+                    renderResults(data.data);
+                    updateStats(data);
+                    showStatus('Extraction successful!', 'success');
+                    
+                    // Update thinking
+                    thinkingContent.textContent = 'Analysis complete. Results ready.';
+                    
+                    // Show JSON toggle
+                    jsonToggle.style.display = 'block';
+                    document.getElementById('jsonPre').textContent = JSON.stringify(data.data, null, 2);
+                } else {
+                    throw new Error(data.error || 'Extraction failed');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                thinkingContent.textContent = `Error: ${error.message}`;
+            } finally {
+                extractBtn.disabled = false;
+                extractBtn.textContent = 'Extract with Claude';
+            }
+        }
+
+        function renderResults(data) {
+            if (!data.teams || data.teams.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <div>No teams found in the screenshot</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="results-grid">';
+            
+            for (const team of data.teams) {
+                const isTop3 = team.placement <= 3;
+                html += `
+                    <div class="team-card">
+                        <div class="team-header">
+                            <span class="team-name">${team.team_name || 'Unknown Team'}</span>
+                            <span class="team-placement ${isTop3 ? 'top3' : ''}">#${team.placement}</span>
+                        </div>
+                        <div class="players">
+                            ${team.players.map(p => `
+                                <div class="player-row">
+                                    <span class="player-name">${p.player_name || '—'}</span>
+                                    <span class="player-kills">${p.kills ?? '?'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="team-total">
+                            <span class="team-total-label">Total Kills</span>
+                            <span class="team-total-value">${team.total_kills ?? '—'}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            resultsContainer.innerHTML = html;
+        }
+
+        function updateStats(data) {
+            stats.style.display = 'grid';
+            document.getElementById('statTeams').textContent = data.data?.teams?.length || 0;
+            document.getElementById('statTokens').textContent = data.tokens?.total || '—';
+            document.getElementById('statLatency').textContent = data.latency_seconds 
+                ? `${data.latency_seconds.toFixed(1)}s` 
+                : '—';
+        }
+
+        function showStatus(message, type) {
+            if (!message) {
+                statusMessage.classList.remove('active');
+                return;
+            }
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message active ${type}`;
+        }
+
+        function toggleJson() {
+            const content = document.getElementById('jsonContent');
+            const arrow = document.getElementById('jsonArrow');
+            content.classList.toggle('active');
+            arrow.textContent = content.classList.contains('active') ? '▲' : '▼';
+        }
+    </script>
+</body>
+</html>
